@@ -84,8 +84,8 @@ Two complementary dimensions are investigated:
 Let $s$ be a chess position and $a$ a legal move in $s$. Two signals are combined:
 
 $$
-g(s,a) = \text{objective evaluation}, \qquad
-h(s,a) = \text{learned move preference}
+g(s,a) = \mathrm{objective\ evaluation}, \qquad
+h(s,a) = \mathrm{learned\ move\ preference}
 $$
 
 The final decision maximizes a combined score $F$ over the safe candidate moves:
@@ -169,7 +169,7 @@ where $\theta$ denotes the trainable parameters.
 A residual block learns a transformation $R(x)$ and adds it to its input:
 
 $$
-x_{\mathrm{out}} = \text{ReLU}\bigl(x + R(x)\bigr)
+x_{\mathrm{out}} = \mathrm{ReLU}\bigl(x + R(x)\bigr)
 $$
 
 The skip connection lets the block preserve information from its input instead of reconstructing the entire representation, which facilitates the optimization of deeper networks.
@@ -187,7 +187,7 @@ $$
 **Excitation** — the descriptors pass through a small gating network:
 
 $$
-w = \sigma\bigl(W_2 \text{ReLU}(W_1 z)\bigr)
+w = \sigma\bigl(W_2 \mathrm{ReLU}(W_1 z)\bigr)
 $$
 
 **Recalibration** — the feature map is rescaled channel-wise:
@@ -228,10 +228,10 @@ Each logit is the unnormalized score of one action class. Logits are **not** pro
 The origin and destination heads also contribute to the main policy logit of an action $a$:
 
 $$
-z(a) = z_{\mathrm{policy}}(a) + z_{\mathrm{from}}\bigl(\text{src}(a)\bigr) + z_{\mathrm{to}}\bigl(\text{dst}(a)\bigr)
+z(a) = z_{\mathrm{policy}}(a) + z_{\mathrm{from}}\bigl(\mathrm{src}(a)\bigr) + z_{\mathrm{to}}\bigl(\mathrm{dst}(a)\bigr)
 $$
 
-where $\text{src}(a)$ and $\text{dst}(a)$ are the origin and destination squares of $a$. Auxiliary predictions provide additional supervision during training; they do not replace the main policy output.
+where $\mathrm{src}(a)$ and $\mathrm{dst}(a)$ are the origin and destination squares of $a$. Auxiliary predictions provide additional supervision during training; they do not replace the main policy output.
 
 ### Policy probabilities
 
@@ -274,13 +274,9 @@ The pipeline combines **human chess games** (examples of move selection) and **t
 
 $$
 \begin{aligned}
-\mathcal{L} ={}& \mathcal{L}_{\mathrm{policy}}
-+ 0.2\,\mathcal{L}_{\mathrm{from}}
-+ 0.2\,\mathcal{L}_{\mathrm{to}} \\
-&+ 0.1\,\mathcal{L}_{\mathrm{phase}}
-+ 0.2\,\mathcal{L}_{\mathrm{type}} \\
-&+ 0.2\,\mathcal{L}_{\mathrm{legal}}
-+ 0.1\,\mathcal{L}_{\mathrm{theme}}
+\mathcal{L} ={}& \mathcal{L}_{\mathrm{policy}} + 0.2\,\mathcal{L}_{\mathrm{from}} + 0.2\,\mathcal{L}_{\mathrm{to}} \\
+&+ 0.1\,\mathcal{L}_{\mathrm{phase}} + 0.2\,\mathcal{L}_{\mathrm{type}} \\
+&+ 0.2\,\mathcal{L}_{\mathrm{legal}} + 0.1\,\mathcal{L}_{\mathrm{theme}}
 \end{aligned}
 $$
 
@@ -466,7 +462,7 @@ The raw signals have different meanings and units: $g$ is an engine evaluation i
 KAIROS standardizes each signal using statistics of the **root candidate set**:
 
 $$
-\mu_g,\ \mu_h : \text{means}, \qquad
+\mu_g,\ \mu_h : \mathrm{means}, \qquad
 \sigma_g = \max\bigl(\widehat{\sigma}_g,\ 25\bigr), \qquad
 \sigma_h = \max\bigl(\widehat{\sigma}_h,\ 0.25\bigr)
 $$
@@ -590,16 +586,16 @@ The divergence rate $\widehat{D}(\lambda) \in [0,1]$ is recorded per policy and 
 Let $C_i^{\mathrm{SF}}$ be the (clipped) evaluation of the Stockfish top-1 and $C_i^{\mathrm{sel}}$ that of the selected move, using a consistent perspective and score convention:
 
 $$
-\text{cost}_i = C_i^{\mathrm{SF}} - C_i^{\mathrm{sel}}
+\mathrm{cost}_i = C_i^{\mathrm{SF}} - C_i^{\mathrm{sel}}
 $$
 
 $$
-\overline{\text{cost}} = \frac{1}{N} \sum_{i=1}^{N} \text{cost}_i,
+\overline{\mathrm{cost}} = \frac{1}{N} \sum_{i=1}^{N} \mathrm{cost}_i,
 \qquad
-\overline{\text{cost}}_{\mathrm{div}} = \frac{\sum_{i=1}^{N} D_i \text{cost}_i}{\sum_{i=1}^{N} D_i}
+\overline{\mathrm{cost}}_{\mathrm{div}} = \frac{\sum_{i=1}^{N} D_i \mathrm{cost}_i}{\sum_{i=1}^{N} D_i}
 $$
 
-The conditional mean $\overline{\text{cost}}_{\mathrm{div}}$ isolates positions where KAIROS departs from the Stockfish top-1. If no position diverges, it is undefined and should be reported as *unavailable*, not zero. Centipawn cost is engine-relative; it is not a complete measure of strategic quality, practical difficulty, or style.
+The conditional mean $\overline{\mathrm{cost}}_{\mathrm{div}}$ isolates positions where KAIROS departs from the Stockfish top-1. If no position diverges, it is undefined and should be reported as *unavailable*, not zero. Centipawn cost is engine-relative; it is not a complete measure of strategic quality, practical difficulty, or style.
 
 #### Behavioral metrics
 
@@ -634,10 +630,10 @@ Paired differences are computed for divergence, centipawn cost, captures, checks
 3. Repeat for many bootstrap samples.
 4. Use the resulting distribution to estimate confidence limits.
 
-For a 95% percentile interval, with bootstrap estimates $\widehat{M}^{*}$:
+For a 95% percentile interval, with bootstrap estimates $\widehat{M^{*}}$:
 
 $$
-\mathrm{CI}_{95\%} = \Bigl[\, Q_{0.025}\bigl(\widehat{M}^{*}\bigr),\ Q_{0.975}\bigl(\widehat{M}^{*}\bigr) \,\Bigr]
+\mathrm{CI}_{95\%} = \Bigl[\, Q_{0.025}\bigl(\widehat{M^{*}}\bigr),\ Q_{0.975}\bigl(\widehat{M^{*}}\bigr) \,\Bigr]
 $$
 
 where $Q_p$ is the $p$-th quantile.
@@ -658,13 +654,13 @@ The neural model and the search system are evaluated **separately**.
 **Top-1 accuracy** — the highest-probability move matches the target:
 
 $$
-\text{Top1} = \frac{1}{N} \sum_{i=1}^{N} \mathbf{1}\Bigl[\arg\max_{a \in A(s_i)} \pi_\theta(a \mid s_i) = y_i\Bigr]
+\mathrm{Top1} = \frac{1}{N} \sum_{i=1}^{N} \mathbf{1}\Bigl[\arg\max_{a \in A(s_i)} \pi_\theta(a \mid s_i) = y_i\Bigr]
 $$
 
 **Top-3 accuracy** — the target is among the three highest-ranked legal moves:
 
 $$
-\text{Top3} = \frac{1}{N} \sum_{i=1}^{N} \mathbf{1}\bigl[\,y_i \in \text{Top3}(s_i)\,\bigr]
+\mathrm{Top3} = \frac{1}{N} \sum_{i=1}^{N} \mathbf{1}\bigl[\,y_i \in \mathrm{Top3}(s_i)\,\bigr]
 $$
 
 **Negative log-likelihood (NLL)** — lower means more probability on observed moves:
