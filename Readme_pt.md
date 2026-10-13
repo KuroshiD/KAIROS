@@ -633,13 +633,13 @@ As diferenças pareadas são calculadas para divergência, custo em centipawns, 
 
 Para um intervalo percentil de 95%, com estimativas de *bootstrap* \(\widehat{M}^{\*}\):
 
-$$
+```math
 \mathrm{CI}_{95\%} =
 \left[
-Q_{0.025}\left(\widehat{M}^{\*}\right),
-Q_{0.975}\left(\widehat{M}^{\*}\right)
+Q_{0.025}\left(\widehat{M}^{*}\right),
+Q_{0.975}\left(\widehat{M}^{*}\right)
 \right]
-$$
+```
 
 em que \(Q_p\) é o quantil de ordem \(p\).
 
