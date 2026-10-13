@@ -632,18 +632,18 @@ Paired differences are computed for divergence, centipawn cost, captures, checks
 
 For a 95% percentile interval, with bootstrap estimates \(\widehat{M}^{*}\):
 
-$$
+\[
 \mathrm{CI}_{95\%} =
 \left[
 Q_{0.025}\left(\widehat{M}^{*}\right),
 Q_{0.975}\left(\widehat{M}^{*}\right)
 \right]
-$$
+\]
 
 where \(Q_p\) is the \(p\)-th quantile.
 
 > [!WARNING]
-> - For paired comparisons the bootstrap must **preserve the pairing** (resample the paired difference, or both measurements together).
+> - For paired comparisons, the bootstrap must **preserve the pairing** by resampling paired differences or resampling both measurements together.
 > - An interval excluding zero indicates evidence of a nonzero difference; it does not establish practical importance or causal validity.
 > - Positions can be statistically dependent, so intervals should be interpreted in light of the sampling design and any repeated-game or source-level dependencies.
 
