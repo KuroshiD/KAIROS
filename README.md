@@ -625,20 +625,20 @@ Paired differences are computed for divergence, centipawn cost, captures, checks
 
 ### Bootstrap confidence intervals
 
-1. Sample $N$ observations **with replacement** from the evaluated positions.
+1. Sample \(N\) observations **with replacement** from the evaluated positions.
 2. Compute the statistic on the resample.
 3. Repeat for many bootstrap samples.
 4. Use the resulting distribution to estimate confidence limits.
 
 For a 95% percentile interval, with bootstrap estimates $\widehat{M}^{*}$:
 
-$$
+```math
 \mathrm{CI}_{95\%} =
 \left[
 Q_{0.025}\left(\widehat{M}^{*}\right),
 Q_{0.975}\left(\widehat{M}^{*}\right)
 \right]
-$$
+```
 
 where $Q_p$ is the $p$-th quantile.
 
