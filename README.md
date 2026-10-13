@@ -632,13 +632,13 @@ Paired differences are computed for divergence, centipawn cost, captures, checks
 
 For a 95% percentile interval, with bootstrap estimates \(\widehat{M}^{*}\):
 
-\[
+$$
 \mathrm{CI}_{95\%} =
 \left[
 Q_{0.025}\left(\widehat{M}^{*}\right),
 Q_{0.975}\left(\widehat{M}^{*}\right)
 \right]
-\]
+$$
 
 where \(Q_p\) is the \(p\)-th quantile.
 
