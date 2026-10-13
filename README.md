@@ -169,7 +169,7 @@ where $\theta$ denotes the trainable parameters.
 A residual block learns a transformation $R(x)$ and adds it to its input:
 
 $$
-x_{\mathrm{out}} = \operatorname{ReLU}\bigl(x + R(x)\bigr)
+x_{\mathrm{out}} = \text{ReLU}\bigl(x + R(x)\bigr)
 $$
 
 The skip connection lets the block preserve information from its input instead of reconstructing the entire representation, which facilitates the optimization of deeper networks.
@@ -187,7 +187,7 @@ $$
 **Excitation** — the descriptors pass through a small gating network:
 
 $$
-w = \sigma\bigl(W_2 \operatorname{ReLU}(W_1 z)\bigr)
+w = \sigma\bigl(W_2 \text{ReLU}(W_1 z)\bigr)
 $$
 
 **Recalibration** — the feature map is rescaled channel-wise:
@@ -228,10 +228,10 @@ Each logit is the unnormalized score of one action class. Logits are **not** pro
 The origin and destination heads also contribute to the main policy logit of an action $a$:
 
 $$
-z(a) = z_{\mathrm{policy}}(a) + z_{\mathrm{from}}\bigl(\operatorname{src}(a)\bigr) + z_{\mathrm{to}}\bigl(\operatorname{dst}(a)\bigr)
+z(a) = z_{\mathrm{policy}}(a) + z_{\mathrm{from}}\bigl(\text{src}(a)\bigr) + z_{\mathrm{to}}\bigl(\text{dst}(a)\bigr)
 $$
 
-where $\operatorname{src}(a)$ and $\operatorname{dst}(a)$ are the origin and destination squares of $a$. Auxiliary predictions provide additional supervision during training; they do not replace the main policy output.
+where $\text{src}(a)$ and $\text{dst}(a)$ are the origin and destination squares of $a$. Auxiliary predictions provide additional supervision during training; they do not replace the main policy output.
 
 ### Policy probabilities
 
@@ -590,16 +590,16 @@ The divergence rate $\widehat{D}(\lambda) \in [0,1]$ is recorded per policy and 
 Let $C_i^{\mathrm{SF}}$ be the (clipped) evaluation of the Stockfish top-1 and $C_i^{\mathrm{sel}}$ that of the selected move, using a consistent perspective and score convention:
 
 $$
-\operatorname{cost}_i = C_i^{\mathrm{SF}} - C_i^{\mathrm{sel}}
+\text{cost}_i = C_i^{\mathrm{SF}} - C_i^{\mathrm{sel}}
 $$
 
 $$
-\overline{\operatorname{cost}} = \frac{1}{N} \sum_{i=1}^{N} \operatorname{cost}_i,
+\overline{\text{cost}} = \frac{1}{N} \sum_{i=1}^{N} \text{cost}_i,
 \qquad
-\overline{\operatorname{cost}}_{\mathrm{div}} = \frac{\sum_{i=1}^{N} D_i \operatorname{cost}_i}{\sum_{i=1}^{N} D_i}
+\overline{\text{cost}}_{\mathrm{div}} = \frac{\sum_{i=1}^{N} D_i \text{cost}_i}{\sum_{i=1}^{N} D_i}
 $$
 
-The conditional mean $\overline{\operatorname{cost}}_{\mathrm{div}}$ isolates positions where KAIROS departs from the Stockfish top-1. If no position diverges, it is undefined and should be reported as *unavailable*, not zero. Centipawn cost is engine-relative; it is not a complete measure of strategic quality, practical difficulty, or style.
+The conditional mean $\overline{\text{cost}}_{\mathrm{div}}$ isolates positions where KAIROS departs from the Stockfish top-1. If no position diverges, it is undefined and should be reported as *unavailable*, not zero. Centipawn cost is engine-relative; it is not a complete measure of strategic quality, practical difficulty, or style.
 
 #### Behavioral metrics
 
@@ -658,19 +658,19 @@ The neural model and the search system are evaluated **separately**.
 **Top-1 accuracy** — the highest-probability move matches the target:
 
 $$
-\operatorname{Top1} = \frac{1}{N} \sum_{i=1}^{N} \mathbf{1}\Bigl[\arg\max_{a \in A(s_i)} \pi_\theta(a \mid s_i) = y_i\Bigr]
+\text{Top1} = \frac{1}{N} \sum_{i=1}^{N} \mathbf{1}\Bigl[\arg\max_{a \in A(s_i)} \pi_\theta(a \mid s_i) = y_i\Bigr]
 $$
 
 **Top-3 accuracy** — the target is among the three highest-ranked legal moves:
 
 $$
-\operatorname{Top3} = \frac{1}{N} \sum_{i=1}^{N} \mathbf{1}\bigl[\,y_i \in \operatorname{Top3}(s_i)\,\bigr]
+\text{Top3} = \frac{1}{N} \sum_{i=1}^{N} \mathbf{1}\bigl[\,y_i \in \text{Top3}(s_i)\,\bigr]
 $$
 
 **Negative log-likelihood (NLL)** — lower means more probability on observed moves:
 
 $$
-\operatorname{NLL} = -\frac{1}{N} \sum_{i=1}^{N} \log \pi_\theta(y_i \mid s_i)
+\text{NLL} = -\frac{1}{N} \sum_{i=1}^{N} \log \pi_\theta(y_i \mid s_i)
 $$
 
 Evaluation is stratified by data source, game phase, source-by-phase combinations, and move type, to expose differences hidden by aggregate metrics.
