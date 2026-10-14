@@ -306,79 +306,81 @@ $$
 For single-label tasks the target is one-hot, so this reduces to $-\log p_{k^\star}$ for the correct class $k^\star$. For multi-label tasks, the appropriate loss depends on the actual target representation and implementation.
 
 <details>
-<summary><b>⚙️ Optimization details</b> — AdamW, learning-rate schedule, gradient clipping, EMA</summary>
+### ⚙️ Optimization Details
 
-<br>
+The network is trained using AdamW, with linear learning-rate warmup, cosine decay, gradient clipping, and Exponential Moving Average (EMA).
 
 #### AdamW
 
-Hyperparameters:
+**Hyperparameters**
 
-$$
-\eta_0 = 10^{-3}, \qquad \beta_1 = 0.9, \qquad \beta_2 = 0.98
-$$
+- Initial learning rate: η₀ = 10⁻³
+- First-moment coefficient: β₁ = 0.9
+- Second-moment coefficient: β₂ = 0.98
 
-Adam keeps moving estimates of the gradient $\nabla_t = \nabla_\theta \mathcal{L}_t$ and of its square:
+Adam maintains exponential moving averages of the gradient and its squared values.
 
-$$
-m_t = \beta_1 m_{t-1} + (1-\beta_1)\,\nabla_t
-$$
+First moment:
 
-$$
-v_t = \beta_2 v_{t-1} + (1-\beta_2)\,\nabla_t^{2}
-$$
+mₜ = β₁mₜ₋₁ + (1 − β₁)∇ₜ
 
-with bias correction:
+Second moment:
 
-$$
-\widehat{m}_t = \frac{m_t}{1-\beta_1^{\,t}}, \qquad
-\widehat{v}_t = \frac{v_t}{1-\beta_2^{\,t}}
-$$
+vₜ = β₂vₜ₋₁ + (1 − β₂)∇ₜ²
 
-A simplified AdamW update, with decoupled weight-decay coefficient $\gamma$:
+where ∇ₜ = ∇θ Lₜ is the gradient of the loss with respect to the model parameters.
 
-$$
-\theta_{t+1} = \theta_t
-- \eta_t \frac{\widehat{m}_t}{\sqrt{\widehat{v}_t} + \epsilon}
-- \eta_t \, \gamma \, \theta_t
-$$
+Bias correction produces the estimates:
 
-The implementation applies weight decay only to parameters with more than one dimension.
+m̂ₜ = mₜ / (1 − β₁ᵗ)
 
-#### Learning-rate schedule
+v̂ₜ = vₜ / (1 − β₂ᵗ)
 
-Linear warmup over $T_w = 1000$ steps, followed by cosine decay to 2% of the initial rate.
+The simplified AdamW update is:
 
-$$
-\eta_t = \eta_0 \, \frac{t}{T_w}, \qquad 0 \le t \le T_w
-$$
+θₜ₊₁ = θₜ − ηₜm̂ₜ / (√v̂ₜ + ε) − ηₜγθₜ
 
-For $t > T_w$, with total steps $T$ and normalized progress $u = \dfrac{t - T_w}{T - T_w} \in [0,1]$:
+Here, γ is the decoupled weight-decay coefficient. The implementation applies weight decay only to parameters with more than one dimension.
 
-$$
-\eta(u) = \eta_{\min} + \frac{\eta_0 - \eta_{\min}}{2}\bigl(1 + \cos(\pi u)\bigr),
-\qquad \eta_{\min} = 0.02\,\eta_0 = 2 \times 10^{-5}
-$$
+#### Learning-Rate Schedule
 
-#### Gradient clipping
+The learning rate begins at zero and increases linearly during a warmup period of Tᵥ = 1,000 steps:
 
-With gradient vector $\mathbf{G}$ and maximum norm $c = 1.0$:
+ηₜ = η₀ · t / Tᵥ, for 0 ≤ t ≤ Tᵥ
 
-$$
-\mathbf{G}' = \mathbf{G} \cdot \min\!\left(1, \frac{c}{\lVert \mathbf{G} \rVert_2}\right)
-$$
+After warmup, cosine decay reduces the learning rate to 2% of its initial value.
 
-If the norm is already below $c$, the gradient is unchanged; otherwise it is rescaled.
+Let T denote the total number of training steps. The normalized progress is:
+
+u = (t − Tᵥ) / (T − Tᵥ), for Tᵥ < t ≤ T
+
+The learning rate becomes:
+
+η(u) = ηₘᵢₙ + (η₀ − ηₘᵢₙ) · [1 + cos(πu)] / 2
+
+where ηₘᵢₙ = 0.02η₀ = 2 × 10⁻⁵.
+
+#### Gradient Clipping
+
+To prevent excessively large gradients, the global gradient norm is limited to c = 1.0.
+
+Given the gradient vector G, the clipped gradient is:
+
+G′ = G · min(1, c / ‖G‖₂)
+
+If the norm is below the threshold, the gradient remains unchanged. Otherwise, it is rescaled to satisfy the maximum norm.
 
 #### Exponential Moving Average (EMA)
 
-$$
-\theta_t^{\mathrm{EMA}} = \delta_t \, \theta_{t-1}^{\mathrm{EMA}} + (1-\delta_t)\,\theta_t,
-\qquad
-\delta_t = \min\!\left(0.999, \frac{1+t}{10+t}\right)
-$$
+EMA maintains a smoothed version of the model parameters:
 
-The target decay is 0.999. EMA reduces the influence of individual optimization steps; the averaged weights are used for validation, checkpoint selection, and final evaluation.
+θₜᴱᴹᴬ = δₜθₜ₋₁ᴱᴹᴬ + (1 − δₜ)θₜ
+
+The decay coefficient is:
+
+δₜ = min(0.999, (1 + t) / (10 + t))
+
+The target decay is 0.999. EMA reduces the influence of individual optimization steps, and the averaged weights are used for validation, checkpoint selection, and final evaluation.
 
 </details>
 
