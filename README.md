@@ -1,915 +1,462 @@
-<div align="center">
+# KAIROS
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=180&section=header&text=KAIROS&fontSize=60&fontColor=ffffff&fontAlignY=38&animation=fadeIn" alt="KAIROS banner" width="100%"/>
+**Knowledge-guided Adaptive Inference for Reasoning Over Style**
 
-### ♟️ Learning how an agent chooses, not only what it chooses.
+A chess agent that separates *how good* a move is from *how much it looks like* a given style.
+Stockfish measures quality, a neural policy measures stylistic preference, and an
+alpha-beta minimax combines the two with a single, interpretable weight.
 
-[![Status](https://img.shields.io/badge/status-in%20development-bd93f9?style=for-the-badge)](#-project-status)
-[![Field](https://img.shields.io/badge/field-AI%20research-8A2BE2?style=for-the-badge)](#-research-objective)
-[![Domain](https://img.shields.io/badge/domain-Chess-44475a?style=for-the-badge)](#-architecture)
-[![Framework](https://img.shields.io/badge/PyTorch-ee4c2c?style=for-the-badge&logo=pytorch&logoColor=white)](#-technology)
-
-*A hybrid chess agent combining deep learning and heuristic search to study stylistic decision-making.*
-
-[Overview](#-overview) •
-[Architecture](#-architecture) •
-[Data](#-data) •
-[Neural Network](#-neural-network) •
-[Training](#-training-methodology) •
-[Search](#-heuristic-search) •
-[Experiments](#-experimental-design) •
-[Roadmap](#-roadmap)
-
-</div>
+Academic project (Integrative Project, Artificial Intelligence and Data Science, Computer Science, 2026).
 
 ---
 
-## 📑 Table of Contents
-
-| | Section | | Section |
-|---|---|---|---|
-| 1 | [Overview](#-overview) | 9 | [Experimental Design](#-experimental-design) |
-| 2 | [Project Status](#-project-status) | 10 | [Evaluation Metrics](#-evaluation-metrics) |
-| 3 | [Research Objective](#-research-objective) | 11 | [Related Work](#-related-work) |
-| 4 | [Architecture](#-architecture) | 12 | [Ethical Considerations](#-ethical-considerations) |
-| 5 | [Data](#-data) | 13 | [Notation](#-notation) |
-| 6 | [Neural Network](#-neural-network) | 14 | [Limitations](#-limitations) |
-| 7 | [Training Methodology](#-training-methodology) | 15 | [Technology](#-technology) · [Roadmap](#-roadmap) |
-| 8 | [Stylistic Policies](#-stylistic-policies) · [Heuristic Search](#-heuristic-search) | | |
-
----
-
-## 🔭 Overview
-
-**KAIROS** is an academic Computer Science project (Integrative Project, Artificial Intelligence and Data Science) investigating the integration of **machine learning and classical artificial intelligence** through chess.
-
-The project studies whether an agent can learn different playing styles from human games and express them in its decisions while maintaining reasonable objective chess quality.
+## Before you start
 
 > [!IMPORTANT]
-> Rather than attempting to outperform Stockfish, KAIROS asks a different question:
->
-> **Can stylistic decision-making be learned, controlled, and measured independently of objective move quality?**
+> This repository contains **code only**. To run KAIROS you must download two things thatre **not included**:
+> the **Stockfish engine** from its official site and the **trained weights** from this repository's Releases.
 
-The system combines three components:
+| # | What                                                      | Where to get it                                                                            | Where to put it             |
+| - | --------------------------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------- |
+| 1 | **Stockfish** (chess engine)                        | Official site: [stockfishchess.org/download](https://stockfishchess.org/download/)          | `stockfish/`              |
+| 2 | **Trained weights** (`kairos-weights-v0.2.0.zip`) | [Release v0.2.0](https://github.com/KuroshiD/KAIROS/releases/tag/v0.2.0) of this repository | Extract at the project root |
 
-| Component | Role |
-|---|---|
-| 🐟 **Stockfish** | Generates candidate moves, evaluates positions, and supplies continuations. |
-| 🧠 **Neural policy** | Learns move preferences from human games and tactical puzzles, then is fine-tuned on a stylistic corpus. |
-| 🔎 **Best-First Search** | Explores candidate continuations with a heuristic that combines objective evaluation and learned stylistic preference. |
+After both steps your folder must look like this:
 
-The central idea is to make the trade-off between these two signals **explicit and experimentally measurable**.
+```
+KAIROS/
+├── stockfish/
+│   └── stockfish-windows-x86-64-universal.exe     # Linux/macOS: stockfish
+└── runs/
+    ├── p1/best.pt            # base policy
+    ├── style_rom/best.pt     # romantic style policy
+    └── style_pos/best.pt     # positional style policy (control)
+```
 
----
+- **Stockfish:** download the build for your system and CPU from the official site, unzip it, and place the executable in `stockfish/`.
+  The project was developed and evaluated with Stockfish 19. The Makefile expects `stockfish/stockfish-windows-x86-64-universal.exe` on Windows
+  and `stockfish/stockfish` elsewhere; if your file has another name, pass it with `make serve STOCKFISH=path/to/your/binary`.
+- **Weights:** download `kairos-weights-v0.2.0.zip` from the [v0.2.0 release](https://github.com/KuroshiD/KAIROS/releases/tag/v0.2.0). The zip already contains the `runs/...` folders, so extracting it at the project root puts every file in place.
+  Without the weights, the web interface and `kairos play` cannot start.
 
-## 🚧 Project Status
+## Web interface
 
-> [!NOTE]
-> **In development: research prototype.**
->
-> - **Done:** data pipeline, baseline policy (trained and evaluated on a held-out test set), exploratory style classifier, and the search module with its experiment script.
-> - **In progress:** style fine-tuning of the romantic policy and of the positional control policy, and the λ-sweep experiments.
-> - **Not yet confirmed:** the hypotheses H1 and H2 below. They are **not** presented as results.
->
-> The complete codebase, trained checkpoints, datasets, and reproducibility artifacts are **not yet published** as a release.
+KAIROS ships with an **official web interface** to play against the agent and inspect its decisions, served locally from `app/`.
 
----
+```bash
+make serve
+```
 
-## 🎯 Research Objective
+Then open **[http://localhost:8000](http://localhost:8000)**.
 
-> **Can a chess agent learn distinct playing styles and express them through its decisions, with a measurable trade-off between stylistic preference and objective move quality?**
+- **Play** as White, Black, or random, against a KAIROS agent running the full minimax search.
+- **Choose the playing style**: romantic policy, positional control, or the untuned base policy.
+- **Tune the agent** with $\lambda$ (how much objective quality is traded for style), temperature, thinking budget, and search depth.
+- **Analysis board** to compare Stockfish's view of a position with KAIROS's choice.
+- Evaluation bar, move list, undo, flip, new game, several piece sets, and three languages (English, Portuguese, Spanish).
 
-Two complementary dimensions are investigated:
+The server listens only on `127.0.0.1`, so it is not exposed to your network.
+Equivalent command without `make`:
 
-| Dimension | Question |
-|---|---|
-| **Objective quality** | How closely does the selected move agree with Stockfish's preferred move, and how much evaluation is lost when the agent diverges? |
-| **Stylistic behavior** | Do the agent's decisions reflect patterns learned from different groups of human players, beyond what a generic corpus effect would produce? |
+```bash
+python app/server.py --stockfish stockfish/<executable> \
+    --policy rom=runs/style_rom/best.pt --policy pos=runs/style_pos/best.pt --policy base=runs/p1/best.pt \
+    --port 8000
+```
 
-Let $s$ be a chess position and $a$ a legal move in $s$. Two signals are combined:
+Use `--cpu` if you have no GPU. Run `python app/server.py --help` for search and engine options.
+
+## Idea
+
+For a line of play ending in position $s_{\text{leaf}}$ with own moves $a_1 \dots a_m$:
 
 $$
-g(s,a) = \mathrm{objective\ evaluation}, \qquad
-h(s,a) = \mathrm{learned\ move\ preference}
+U \;=\; v(s_{\text{leaf}}) \;+\; \lambda \sum_{t=1}^{m} \log \pi(a_t \mid s_t)
 $$
 
-The final decision maximizes a combined score $F$ over the safe candidate moves:
+| Term        | Source        | Meaning                                                                                             |
+| ----------- | ------------- | --------------------------------------------------------------------------------------------------- |
+| $v$       | Stockfish     | Objective value in centipawns (cp), from the agent's point of view.                                 |
+| $\pi$     | Neural policy | Prior over the agent's own moves, learned from a group of players.                                  |
+| $\lambda$ | Parameter     | Centipawns per nat. A move one nat less likely is chosen only if it costs less than $\lambda$ cp. |
 
-$$
-a^\star = \arg\max_{a \in A_{\mathrm{safe}}(s)} F(a)
-$$
+The agent's nodes maximize $U$, the opponent's nodes minimize it, and the opponent has no style.
+With $\lambda = 0$ the agent plays the objective decision of the same search.
+The network never evaluates positions and never acts on the opponent's moves, so style and quality stay separate.
 
-The experiment investigates how changing the relative contribution of $h$ affects move selection, behavioral statistics, and objective evaluation.
+At depth 1 the decision maximizes $E_q[v] - \lambda\,\mathrm{KL}(q \,\|\, \pi)$:
+$\lambda$ is the temperature that sets how much objective quality is traded for style.
 
-### Hypotheses
-
-| | Statement |
-|---|---|
-| **H1** | For $\lambda > 0$, the rate of divergence from the Stockfish top-1 move is greater than zero and grows with $\lambda$. |
-| **H2** | The policy trained on the romantic corpus diverges from Stockfish's top-1 in rate and in direction (move type) differently from a control policy trained on the positional corpus. |
-
-The control policy is what separates "the agent learned a style" from "the agent learned noise of a particular corpus". H1 mostly verifies that the mechanism works; H2 carries the stylistic claim.
-
----
-
-## 🏗️ Architecture
+## Architecture
 
 ```mermaid
-flowchart TD
-    P["♟️ Chess position"] --> X["Input tensor 18 × 8 × 8"]
-    X --> CNN["Residual CNN"]
-    CNN --> L["Policy logits"]
-    L --> SM["Legal-move softmax"]
-    SM --> H["Stylistic preference h"]
-
-    P --> SF["🐟 Stockfish"]
-    SF --> C["Candidate moves"]
-    SF --> G["Position evaluations g"]
-
-    C --> BFS["🔎 Best-First Search"]
-    G --> BFS
-    H --> BFS
-    BFS --> F["Combined score f"]
-    F --> M["✅ Selected move"]
+flowchart LR
+    subgraph Offline
+        A["Strength corpus"] --> B["PolicyNet"] --> C["Style fine-tuning"] --> D["Style policy"]
+    end
+    subgraph Inference
+        X["Position"] --> SF["Stockfish MultiPV"] --> T[("Candidate tree, SQLite")]
+        T --> M["Minimax with alpha-beta"]
+        D -. "log pi" .-> M
+        M --> R["Move, Q(a), ranking"]
+    end
 ```
 
-Stockfish participates in both candidate generation and the evaluation of explored positions. The neural policy supplies a learned preference signal, while the search organizes the exploration and comparison of alternatives.
-
-### Component responsibilities
-
-| Component | Responsibility |
-|---|---|
-| Neural network | Estimates preferences over legal moves. |
-| Stockfish | Generates candidates and evaluates positions. |
-| Safety filter | Removes candidates exceeding configured safety limits. |
-| Best-First Search | Prioritizes and expands promising nodes. |
-| Evaluation pipeline | Measures divergence, centipawn cost, and behavioral differences. |
-
----
-
-## 🗂️ Data
-
-Two corpora with different purposes are used. They should not be confused.
-
-### Strength corpus (baseline training)
-
-A large corpus of human games and tactical puzzles, used to train the general policy.
-
-| Source | Content |
-|---|---|
-| Human games (PGN) | Tournament games from [TWIC](https://theweekinchess.com) (2010 onward) and a public aggregated database on Figshare (earlier games). 274,098 games; mean Elo about 2,617; most files were collected with a 2500+ cutoff, some with 2600+ or 2400+. |
-| Puzzles | The public [Lichess puzzle database](https://database.lichess.org), with theme labels. |
-
-| Split | Positions | From PGN | From puzzles |
-|---|---:|---:|---:|
-| Train | 10,211,930 | 2,168,872 | 8,043,058 |
-| Validation | 1,702,746 | 361,469 | 1,341,277 |
-| Test | 1,702,331 | 361,354 | 1,340,977 |
-
-Games are split by game, puzzles by puzzle identifier. About 79% of the positions come from puzzles, so aggregate metrics are dominated by them and are reported separately by source.
-
-> [!NOTE]
-> The minimum-rating filter was not applied uniformly across collection batches. This is a known limitation of the collection process.
-
-### Style corpus (fine-tuning and exploratory analysis)
-
-Games of 20 players, grouped a priori by historical reputation. Only the moves of the target player are used.
-
-| Group | Players | Games |
-|---|---|---:|
-| 🔥 **Romantic** (11) | Morphy, Anderssen, Chigorin, Marshall, Spielmann, Alekhine, Tal, Bronstein, Kasparov, Shirov, Morozevich | 20,645 |
-| 🏛️ **Positional** (9) | Steinitz, Rubinstein, Capablanca, Nimzowitsch, Botvinnik, Smyslov, Petrosian, Karpov, Kramnik | 15,776 |
-| **Reference, unlabeled** | Fischer | 825 |
-
-The two groups are an **operational definition** for the experiment, not a claim that every game by a player belongs unambiguously to one style. The corpus is heterogeneous: from 202 games (Morphy) to 6,065 (Shirov) per player, and across eras and opponent strength.
-
-For the neural policies, a **per-player sample** is drawn (up to 260 games per player and 24 positions per game), annotated with Stockfish (rank of the human move among the engine's candidates and centipawn loss), and split by game into train, validation, and test. Fischer's games are never used for training. Anderssen's games are kept as a qualitative reference and are not used for fine-tuning.
-
-### Exploratory style classifier
-
-Before investing in the neural policies, a logistic regression classified each game as romantic or positional from seven aggregate features of the target player's moves (own moves, capture rate, check rate, early queen moves, sustained-sacrifice rate, development, castling). It is **not** the final model.
-
-| Result (held-out games, n = 9,106) | Value |
-|---|---|
-| Accuracy | 55.71% (approx. 95% CI 54.7% to 56.7%) |
-| Majority-class baseline | 56.69% |
-| Balanced accuracy | 56.66% |
-| 5-fold cross-validation | 55.33% ± 0.46 pp |
-
-A leave-one-player-out validation was heterogeneous: the contrast transfers to some unseen players and fails for others. The aggregate signal is therefore **real but modest, and cannot be read as genuine style**. This motivates a conservative fine-tuning design and the explicit control policy for H2.
-
----
-
-## 🧠 Neural Network
-
-KAIROS uses a residual convolutional neural network (CNN) adapted to the spatial structure of a chessboard.
-
-### Input representation
-
-$$
-X \in \mathbb{R}^{18 \times 8 \times 8}
-$$
-
-The 18 planes encode the board state: 12 piece planes, side to move, four castling rights, and the en passant square. The remaining two dimensions correspond to the 64 squares.
-
-### Backbone
-
-| # | Stage |
-|---|---|
-| 1 | Convolutional stem mapping 18 input channels to 128 channels. |
-| 2 | Ten residual blocks. |
-| 3 | Two $3 \times 3$ convolutions per residual block. |
-| 4 | Batch Normalization and ReLU activations. |
-| 5 | Squeeze-and-Excitation (SE) channel attention. |
-| 6 | A main policy head and auxiliary prediction heads. |
-
-The backbone produces a feature representation
-
-$$
-H_\theta(X) \in \mathbb{R}^{128 \times 8 \times 8}
-$$
-
-where $\theta$ denotes the trainable parameters.
-
-### Residual connections
-
-A residual block learns a transformation $R(x)$ and adds it to its input:
-
-$$
-x_{\mathrm{out}} = \mathrm{ReLU}\bigl(x + R(x)\bigr)
-$$
-
-The skip connection lets the block preserve information from its input instead of reconstructing the entire representation, which facilitates the optimization of deeper networks.
-
-### Squeeze-and-Excitation attention
-
-SE modules learn the relative importance of feature channels.
-
-**Squeeze:** each channel $c$ is summarized by global average pooling:
-
-$$
-z_c = \frac{1}{64} \sum_{i=1}^{8} \sum_{j=1}^{8} x_{c,i,j}
-$$
-
-**Excitation:** the descriptors pass through a small gating network:
-
-$$
-w = \sigma\bigl(W_2 \mathrm{ReLU}(W_1 z)\bigr)
-$$
-
-**Recalibration:** the feature map is rescaled channel-wise:
-
-$$
-\widetilde{x}_{c,i,j} = w_c \, x_{c,i,j}
-$$
-
-| Symbol | Meaning |
-|---|---|
-| $z \in \mathbb{R}^{C}$ | Channel descriptor vector. |
-| $W_1, W_2$ | Learned weight matrices. |
-| $\sigma$ | Sigmoid function. |
-| $w_c \in (0,1)$ | Weight assigned to channel $c$. |
-
-### Main policy head
-
-The main head maps the backbone representation to 1,968 action logits:
-
-$$
-\mathbf{z}_\theta(s) \in \mathbb{R}^{1968}
-$$
-
-The action space is a compact origin-destination encoding that covers castling, en passant, and promotions. Each logit is the unnormalized score of one action class. Logits are **not** probabilities; a higher logit indicates a greater relative preference before normalization.
-
-### Auxiliary heads
-
-| Head | Output classes | Purpose |
-|---|---:|---|
-| Move origin | 64 | Scores the origin square. |
-| Move destination | 64 | Scores the destination square. |
-| Game phase | 3 | Predicts the phase of the game. |
-| Move type | 4 | Predicts castling, en passant, promotion, or capture. |
-| Legal origin squares | 64 | Predicts legal origin squares. |
-| Legal destination squares | 64 | Predicts legal destination squares. |
-| Puzzle themes | 9 | Predicts tactical themes in puzzle examples. |
-
-The origin and destination heads also contribute to the main policy logit of an action $a$:
-
-$$
-z(a) = z_{\mathrm{policy}}(a) + z_{\mathrm{from}}\bigl(\mathrm{src}(a)\bigr) + z_{\mathrm{to}}\bigl(\mathrm{dst}(a)\bigr)
-$$
-
-where $\mathrm{src}(a)$ and $\mathrm{dst}(a)$ are the origin and destination squares of $a$. Auxiliary predictions provide additional supervision during training; they do not replace the main policy output.
-
-### Policy probabilities
-
-**Legal-move softmax.** Let $A(s)$ be the set of legal moves in $s$. The policy probability of a legal move $a_i$ is
-
-$$
-\pi_\theta(a_i \mid s) = \frac{\exp(z_i)}{\sum_{a_j \in A(s)} \exp(z_j)}
-$$
-
-where $z_i$ is the logit of $a_i$. The denominator runs over legal moves only, so
-
-$$
-\sum_{a \in A(s)} \pi_\theta(a \mid s) = 1
-$$
-
-> [!WARNING]
-> These probabilities express relative preference among legal moves. They are **not** estimates of winning probability, centipawn evaluation, or the probability that a move is objectively optimal.
-
-**Log-probability score.** The search uses the logarithm of the policy probability:
-
-$$
-h(s,a) = \log \pi_\theta(a \mid s) \;\le\; 0
-$$
-
-A larger value means the policy prefers the move more. For example, with probabilities $0.50$ and $0.10$:
-
-$$
-\log 0.50 \approx -0.693 \;>\; \log 0.10 \approx -2.303
-$$
-
-The logarithm preserves the ranking of probabilities and is the natural quantity in cross-entropy objectives.
-
----
-
-## 🏋️ Training Methodology
-
-Training has two stages: a **general policy** trained jointly on human games and tactical puzzles, and a **style fine-tuning** on each stylistic corpus. The objective is to learn a policy that reproduces patterns in the training data, rather than approximating the Stockfish top-ranked move.
-
-### Stage 1: general policy (baseline)
-
-#### Multi-task loss
-
-$$
-\begin{aligned}
-\mathcal{L} ={}& \mathcal{L}_{\mathrm{policy}} + 0.2\,\mathcal{L}_{\mathrm{from}} + 0.2\,\mathcal{L}_{\mathrm{to}} \\
-&+ 0.1\,\mathcal{L}_{\mathrm{phase}} + 0.2\,\mathcal{L}_{\mathrm{type}} \\
-&+ 0.2\,\mathcal{L}_{\mathrm{legal}} + 0.1\,\mathcal{L}_{\mathrm{theme}}
-\end{aligned}
-$$
-
-The theme loss is applied only to puzzle examples. The coefficients set how strongly each task contributes.
-
-#### Policy cross-entropy
-
-The policy loss is a cross-entropy **masked to the legal moves** of the position, with label smoothing of 0.03 distributed only among legal moves. Without smoothing, for a training example $(s_i, y_i)$ with target move $y_i$:
-
-$$
-\mathcal{L}_{\mathrm{policy}} = -\frac{1}{N} \sum_{i=1}^{N} \log \pi_\theta(y_i \mid s_i)
-$$
-
-The model is penalized when it assigns low probability to the observed move.
-
-> [!NOTE]
-> This is supervised learning from selected moves. It is not reinforcement learning: the objective requires neither reward-based interaction nor self-play.
-
-#### Auxiliary classification losses
-
-For a categorical task with $K$ classes, target distribution $q$ and prediction $p$:
-
-$$
-\mathcal{L}_{\mathrm{CE}} = -\sum_{k=1}^{K} q_k \log p_k
-$$
-
-For single-label tasks the target is one-hot, so this reduces to $-\log p_{k^\star}$ for the correct class $k^\star$. Multi-label tasks (puzzle themes, move type, legal squares) use binary cross-entropy.
-
-<details>
-<summary><b>⚙️ Optimization details</b></summary>
-
-&nbsp;
-
-The network is trained using AdamW, with linear learning-rate warmup, cosine decay, gradient clipping, and Exponential Moving Average (EMA).
-
-#### AdamW
-
-**Hyperparameters**
-
-- Initial learning rate: η₀ = 10⁻³
-- First-moment coefficient: β₁ = 0.9
-- Second-moment coefficient: β₂ = 0.98
-
-Adam maintains exponential moving averages of the gradient and its squared values.
-
-First moment:
-
-mₜ = β₁mₜ₋₁ + (1 − β₁)∇ₜ
-
-Second moment:
-
-vₜ = β₂vₜ₋₁ + (1 − β₂)∇ₜ²
-
-where ∇ₜ = ∇θ Lₜ is the gradient of the loss with respect to the model parameters.
-
-Bias correction produces the estimates:
-
-m̂ₜ = mₜ / (1 − β₁ᵗ)
-
-v̂ₜ = vₜ / (1 − β₂ᵗ)
-
-The simplified AdamW update is:
-
-θₜ₊₁ = θₜ − ηₜm̂ₜ / (√v̂ₜ + ε) − ηₜγθₜ
-
-Here, γ is the decoupled weight-decay coefficient. The implementation applies weight decay only to parameters with more than one dimension.
-
-#### Learning-rate schedule
-
-The learning rate begins at zero and increases linearly during a warmup period of Tᵥ = 1,000 steps:
-
-ηₜ = η₀ · t / Tᵥ, for 0 ≤ t ≤ Tᵥ
-
-After warmup, cosine decay reduces the learning rate to 2% of its initial value.
-
-Let T denote the total number of training steps. The normalized progress is:
-
-u = (t − Tᵥ) / (T − Tᵥ), for Tᵥ < t ≤ T
-
-The learning rate becomes:
-
-η(u) = ηₘᵢₙ + (η₀ − ηₘᵢₙ) · [1 + cos(πu)] / 2
-
-where ηₘᵢₙ = 0.02η₀ = 2 × 10⁻⁵.
-
-#### Gradient clipping
-
-To prevent excessively large gradients, the global gradient norm is limited to c = 1.0.
-
-Given the gradient vector G, the clipped gradient is:
-
-G′ = G · min(1, c / ‖G‖₂)
-
-If the norm is below the threshold, the gradient remains unchanged. Otherwise, it is rescaled to satisfy the maximum norm.
-
-#### Exponential Moving Average (EMA)
-
-EMA maintains a smoothed version of the model parameters:
-
-θₜᴱᴹᴬ = δₜθₜ₋₁ᴱᴹᴬ + (1 − δₜ)θₜ
-
-The decay coefficient is:
-
-δₜ = min(0.999, (1 + t) / (10 + t))
-
-The target decay is 0.999. EMA reduces the influence of individual optimization steps, and the averaged weights are used for validation, checkpoint selection, and final evaluation.
-
-</details>
-
-#### Validation and test
-
-During training, the model is evaluated each epoch on a fixed validation subset of up to 200,000 positions. A checkpoint is selected on validation data (EMA weights) and then evaluated once on the complete test set.
-
-| Split | Purpose |
-|---|---|
-| **Training** | Updates the parameters. |
-| **Validation** | Supports model selection and hyperparameter decisions. |
-| **Test** | Measures performance on held-out data. |
-
-> [!CAUTION]
-> The test set must not be used repeatedly to choose the best model; doing so compromises its role as an independent evaluation set.
-
-#### Baseline results (test set)
-
-| Group | Positions | Top-1 | Top-3 | NLL |
-|---|---:|---:|---:|---:|
-| Overall | 1,702,331 | 80.81% | 93.37% | 0.6345 |
-| Puzzles | 1,340,977 | 88.93% | 97.72% | 0.3658 |
-| Human games (PGN) | 361,354 | 50.65% | 77.24% | 1.6318 |
-
-The gap between puzzles and human games is expected: puzzle positions typically have one salient correct move, while an ordinary game position admits several humanly reasonable moves, which makes top-1 a much stricter criterion. For this reason the final system is also measured by divergence and centipawn cost, not only by top-1 accuracy. After about the eleventh epoch the validation loss rises while the training loss keeps falling (mild overfitting), which is why an intermediate checkpoint is used.
-
-### Stage 2: style fine-tuning
-
-Each stylistic policy starts from the baseline checkpoint (warm start) and is fine-tuned on its group's corpus with a **reduced learning rate**, to preserve the tactical competence already acquired. The romantic policy and the positional **control policy** follow the same procedure and hyperparameters, on corpora of the same size.
-
-| Mechanism | Purpose |
-|---|---|
-| Replay of general data | Each step mixes style positions with positions from the strength corpus, to limit catastrophic forgetting. |
-| KL term toward the frozen baseline | Keeps the output distribution close to the baseline on the replayed positions. |
-| Tactical regression gate | An epoch is rejected if top-1 on the tactical validation set drops by more than one percentage point. |
-| Early stopping on style NLL | The checkpoint is chosen by validation negative log-likelihood on the style corpus, among epochs that pass the gate. |
-| Per-example weights | Human moves that differ from Stockfish's top-1 receive a larger weight, and weights are periodically adapted so that the rate of simple move properties (capture, check, sacrifice, quiet, castling, queen move, pawn push, king-zone move) approaches the human rate. |
-
-> [!NOTE]
-> The move-property flags and the Stockfish rank are used to **measure** style and to **reweight training examples**. They do not enter the decision function of the search, where the stylistic signal is the log-probability of the policy alone. Because the same flags are used to reweight training and to report behavior in H2, differences in those flags should be read with this in mind and checked against a variant without reweighting.
-
----
-
-## 🎭 Stylistic Policies
-
-KAIROS investigates two principal stylistic policies, built from the groups described in [Data](#-data).
-
-| | 🔥 Romantic policy | 🏛️ Positional policy (control) |
-|---|---|---|
-| **Corpus** | 11 players, from Morphy and Chigorin to Tal, Kasparov, Shirov, and Morozevich | 9 players, from Steinitz and Capablanca to Petrosian, Karpov, and Kramnik |
-| **Reference only** | Anderssen (kept as a qualitative reference, not fine-tuned on) | none |
-
-The policy corpora are drawn per player (see [Data](#-data)); the categories are **operational definitions** for the experiment and do not imply that every game by a player belongs unambiguously to one style.
-
-### Fischer evaluation
-
-Bobby Fischer's games are used as an **independent qualitative reference**, deliberately unlabeled and never used for training. They help examine how the policies behave on positions outside the romantic-versus-positional scheme. They do not, by themselves, establish generalization to every unseen player or position.
-
----
-
-## 🔎 Heuristic Search
-
-The search is a **Best-First Search**: a classical AI technique that keeps a frontier of nodes and expands the one with the highest priority. KAIROS uses a specialized scoring function rather than the conventional A* cost formulation. A node is a position in which the agent is to move again; the opponent's reply along each candidate line is **fixed** to the second move of Stockfish's principal variation, so the graph branches only on the agent's own moves.
-
-### Candidate generation
-
-| Stage | Setting |
-|---|---|
-| Root candidates | Up to **12** principal variations via MultiPV, **5,000**-node search. |
-| Safety filter | Removes candidates that allow forced mate against, or lose more than **600 cp** relative to the best candidate. It is the only filtering applied. |
-| Fallback | If no candidate survives, the top-ranked candidate is retained. |
-| Internal nodes | Up to **6** candidates from Stockfish. |
-
-These are computational settings, not guarantees of optimality.
-
-### Objective signal
-
-Let $g(s,a)$ be the Stockfish evaluation (in centipawns, from the point of view of the side deciding) associated with a candidate. It is clipped to limit the influence of extreme values:
-
-$$
-g_{\mathrm{clip}}(s,a) = \max\bigl(-1000,\; \min(1000,\; g(s,a))\bigr)
-$$
-
-The centipawn value is an engine evaluation, not a direct probability of winning.
-
-### Stylistic signal
-
-For a single move:
-
-$$
-h(s,a) = \log \pi_\theta(a \mid s)
-$$
-
-At deeper nodes, the search averages the log-probability over the agent's own moves along the explored path to node $n$:
-
-$$
-h_{\mathrm{path}}(n) = \frac{1}{m} \sum_{i=1}^{m} \log \pi_\theta(a_i \mid s_i)
-$$
-
-where $m$ is the number of the agent's moves on the path. This averages the policy signal rather than summing it. In what follows, $h(n) \equiv h_{\mathrm{path}}(n)$ and $g(n)$ is the clipped Stockfish evaluation of node $n$.
-
-### Normalization
-
-The raw signals have different meanings and units: $g$ is an engine evaluation in centipawns, whereas $h$ is a log-probability. Adding them directly would make their relative influence depend on arbitrary scale differences.
-
-KAIROS standardizes each signal using statistics of the **root candidate set**:
-
-$$
-\mu_g,\ \mu_h : \mathrm{means}, \qquad
-\sigma_g = \max\bigl(\widehat{\sigma}_g,\ 25\bigr), \qquad
-\sigma_h = \max\bigl(\widehat{\sigma}_h,\ 0.25\bigr)
-$$
-
-where $\widehat{\sigma}_g$ and $\widehat{\sigma}_h$ are the root-candidate standard deviations, and the floors (25 cp and 0.25) prevent division by very small values. The same root parameters are reused at deeper nodes so that scores share a common scale. The order of the candidates is shuffled before the decision, to remove position bias in ties.
-
-### Combined evaluation function
-
-$$
-f(n) = \underbrace{\frac{g(n) - \mu_g}{\sigma_g}}_{g'(n)} \;+\; \lambda\, \underbrace{\frac{h(n) - \mu_h}{\sigma_h}}_{h'(n)}
-$$
-
-| Symbol | Meaning |
-|---|---|
-| $n$ | A node in the explored search tree. |
-| $g(n)$ | Stockfish's objective evaluation signal. |
-| $h(n)$ | Neural policy preference signal. |
-| $\mu_g,\ \mu_h$ | Root-candidate means. |
-| $\sigma_g,\ \sigma_h$ | Root normalization scales (with floors). |
-| $\lambda$ | Relative weight of stylistic preference. |
-| $f(n)$ | Priority score used by the search. |
-
-### The role of λ
-
-The experiment tests
-
-$$
-\lambda \in \{0,\ 0.25,\ 0.5,\ 1,\ 2,\ 4\}
-$$
-
-- **$\lambda = 0$:** the stylistic term vanishes, $f(n) = g'(n)$. The implementation uses the Stockfish top-1 directly as the control at the root.
-- **$\lambda > 0$:** the policy contributes to the ranking: $f(n) = g'(n) + \lambda\, h'(n)$.
-
-Increasing $\lambda$ gives the policy a larger coefficient, but does not guarantee that every individual move changes monotonically or that the selected move becomes objectively worse.
-
-### Best-First expansion
-
-The frontier is a priority queue implemented as a heap. At each iteration:
-
-1. Select the frontier node with the highest $f(n)$.
-2. Query Stockfish for candidate continuations.
-3. Apply each candidate and the associated Stockfish response.
-4. Compute the objective and policy signals of the resulting nodes.
-5. Update the best score found for the corresponding root move.
-6. Insert eligible successors into the frontier.
-
-The current configuration uses an **expansion budget of 6** and a **maximum depth of 3** of the agent's own moves. A budget of zero evaluates only the root.
-
-### Root-move selection
-
-Let $T(a)$ be the explored subtree of root move $a$. Its score is
-
-$$
-F(a) = \max_{n \in T(a)} f(n)
-$$
-
-and the selected move is
-
-$$
-a^\star = \arg\max_{a \in A_{\mathrm{safe}}(s)} F(a)
-$$
-
-where $A_{\mathrm{safe}}(s)$ is the set of safe root candidates.
-
-> [!NOTE]
-> This is a maximum-over-explored-subtree criterion, **not** exhaustive minimax: the search does not independently minimize the objective over every possible opponent reply. Because the budget is smaller than the number of root candidates, only the candidates with a high initial score are expanded, so the criterion is optimistic toward them.
-
-### Difference from A*
-
-In conventional A*:
-
-$$
-f_{\mathrm{A}^*}(n) = c_{\mathrm{path}}(n) + \hat{c}_{\mathrm{goal}}(n)
-$$
-
-where $c_{\mathrm{path}}(n)$ is the accumulated path cost and $\hat{c}_{\mathrm{goal}}(n)$ estimates the remaining cost to a goal.
-
-| | A* | KAIROS |
-|---|---|---|
-| First term | Accumulated path cost | Objective engine evaluation $g$ |
-| Second term | Heuristic estimate to goal | Learned stylistic preference $h$ |
-
-KAIROS is a Best-First Search with a domain-specific heuristic, not a conventional A* implementation. Its two signals are normalized scores to be maximized, not costs, and the heuristic is not admissible.
-
----
-
-## 🧪 Experimental Design
-
-The search experiment evaluates how changing the stylistic weight $\lambda$ affects the decisions of the two policies, on **the same positions**.
-
-### Critical-position selection
-
-1. Load positions from a JSONL file of the style corpus (the reference configuration uses Fischer's positions, which no policy was trained on).
-2. Remove duplicate FEN positions and shuffle.
-3. Keep positions where **at least 3 safe candidates** lie within **150 cp** of the best candidate.
-4. Examine up to four times the requested number of positions; retain the requested number (**500** in the default configuration).
-
-This focuses the experiment on positions with several competitive alternatives. The exact number of usable positions depends on the dataset and filtering criteria. A small sample limits the ability to detect small behavioral differences.
-
-### H1: Stylistic influence
-
-> **Hypothesis:** increasing $\lambda$ increases divergence from Stockfish's top-ranked move.
-
-Let $a_i^\star(\lambda)$ be the selected move and $a_i^{\mathrm{SF}}$ the Stockfish top-1 in position $i$:
-
-$$
-D_i(\lambda) = \mathbf{1}\bigl[\,a_i^\star(\lambda) \neq a_i^{\mathrm{SF}}\,\bigr],
-\qquad
-\widehat{D}(\lambda) = \frac{1}{N} \sum_{i=1}^{N} D_i(\lambda)
-$$
-
-The divergence rate $\widehat{D}(\lambda) \in [0,1]$ is recorded per policy and per $\lambda$; the experiment tests whether it increases monotonically across the configured values.
-
-> [!NOTE]
-> At $\lambda = 0$ the divergence is zero by construction, and a growing weight on $h$ makes a higher divergence expected. H1 is therefore largely a check that the mechanism works. A higher divergence rate shows that the system selects different moves more often; it does not establish that those moves are stylistically authentic.
-
-#### Centipawn cost
-
-Let $C_i^{\mathrm{SF}}$ be the (clipped) evaluation of the Stockfish top-1 and $C_i^{\mathrm{sel}}$ that of the selected move, using a consistent perspective and score convention:
-
-$$
-\mathrm{cost}_i = C_i^{\mathrm{SF}} - C_i^{\mathrm{sel}}
-$$
-
-$$
-\overline{\mathrm{cost}} = \frac{1}{N} \sum_{i=1}^{N} \mathrm{cost}_i,
-\qquad
-\overline{\mathrm{cost}}_{\mathrm{div}} = \frac{\sum_{i=1}^{N} D_i \mathrm{cost}_i}{\sum_{i=1}^{N} D_i}
-$$
-
-The conditional mean $\overline{\mathrm{cost}}_{\mathrm{div}}$ isolates positions where KAIROS departs from the Stockfish top-1. If no position diverges, it is undefined and should be reported as *unavailable*, not zero. Centipawn cost is engine-relative; it is not a complete measure of strategic quality, practical difficulty, or style.
-
-#### Behavioral metrics
-
-For a binary property $B_i$ of the selected move (e.g., gives check), the observed rate is
-
-$$
-\widehat{B} = \frac{1}{N} \sum_{i=1}^{N} B_i
-$$
-
-Tracked properties: **captures**, **checks**, **sacrifices**, **quiet moves**. The classification rules (in particular for sacrifices, a static heuristic on the destination square) are defined by the evaluation implementation and should not be read as universal chess classifications.
-
-### H2: Differences between policies
-
-> **Hypothesis:** the romantic and positional policies produce measurably different behavior on the same positions.
-
-For a metric $M$, the paired difference at position $i$ and its mean are
-
-$$
-\Delta_i = M_i^{\mathrm{rom}} - M_i^{\mathrm{pos}},
-\qquad
-\overline{\Delta} = \frac{1}{N} \sum_{i=1}^{N} \Delta_i
-$$
-
-A positive $\overline{\Delta}$ means the metric is higher for the romantic policy; a negative value, for the positional policy. The paired design controls for differences between positions because both policies are compared on the same set.
-
-Paired differences are computed for divergence, centipawn cost, captures, checks, and sacrifices, and evaluated with bootstrap confidence intervals.
-
-### Bootstrap confidence intervals
-
-1. Sample $N$ observations **with replacement** from the evaluated positions.
-2. Compute the statistic on the resample.
-3. Repeat for many bootstrap samples.
-4. Use the resulting distribution to estimate confidence limits.
-
-For a 95% percentile interval, with bootstrap estimates $\widehat{M}^{*}$:
-
-```math
-\mathrm{CI}_{95\%} =
-\left[
-Q_{0.025}\left(\widehat{M}^{*}\right),
-Q_{0.975}\left(\widehat{M}^{*}\right)
-\right]
+| Module               | Code                             | Role                                                                 |
+| -------------------- | -------------------------------- | -------------------------------------------------------------------- |
+| M1 Strength corpus   | `kairos.data.prepare`          | Human games and Lichess puzzles to 18x8x8 tensors, split by game.    |
+| M2 PolicyNet         | `kairos.models`                | Residual CNN with Squeeze-and-Excitation, 1,968 action logits.       |
+| M3 Style corpus      | `kairos.data.style_corpus`     | One PGN per player, own moves only, annotated with Stockfish.        |
+| M4 Style fine-tuning | `kairos.models.style_finetune` | Warm start, tactical replay, KL to the base policy, regression gate. |
+| M5 Candidate tree    | `kairos.search.tree`           | Stockfish MultiPV, safety net, SQLite cache built once.              |
+| M6 Scorer            | `kairos.search.policy`         | $\log \pi$ of each candidate.                                      |
+| M7 Minimax           | `kairos.search.minimax`        | Exact alpha-beta, moves ordered by the policy.                       |
+| M8 Evaluation        | `kairos.search.evaluation`     | Experiments A to D with paired bootstrap intervals.                  |
+
+**Candidate tree.** Own candidates are moves within 100 cp of the best, with no forced mate against, at most 6.
+Each gets the opponent's 3 best replies (within 150 cp). The root uses 16 lines at 5,000 nodes, inner nodes 1,000.
+Every analysis is stored in SQLite, so the tree is independent of the policy and of $\lambda$ and is solved offline for any setting.
+
+**Network.** Input is 18 planes (12 pieces, side to move, 4 castling rights, en passant).
+Ten residual blocks of 128 channels with Squeeze-and-Excitation (7.07 M parameters), a main policy head plus auxiliary heads
+(origin and destination squares, phase, move type, puzzle theme). Cross-entropy is masked to legal moves, with EMA weights.
+
+## Quick start
+
+Requires Python 3.10+.
+
+```bash
+git clone https://github.com/KuroshiD/KAIROS.git
+cd KAIROS
+python -m venv .venv
+source .venv/bin/activate            # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"              # GPU: run `make install-gpu CUDA=cu121` instead
 ```
 
-where $Q_p$ is the $p$-th quantile.
+Then complete the two downloads from [Before you start](#before-you-start) (Stockfish from its official site and the weights from the [v0.2.0 release](https://github.com/KuroshiD/KAIROS/releases/tag/v0.2.0)) and run:
 
-> [!WARNING]
-> - For paired comparisons, the bootstrap must **preserve the pairing** by resampling paired differences or resampling both measurements together.
-> - An interval excluding zero indicates evidence of a nonzero difference; it does not establish practical importance or causal validity.
-> - Positions from the same game are statistically dependent, so resampling by game is preferable, and intervals should be interpreted in light of the sampling design.
-> - Many intervals are examined at once (several metrics and values of $\lambda$), so isolated significant results should be treated with caution.
+```bash
+make test       # logic tests, no Stockfish or GPU needed
+make serve      # web interface at http://localhost:8000
+```
+
+For GPU, `make install-gpu CUDA=cu121` installs PyTorch with CUDA (adjust `cu121` to your CUDA version).
+On Windows, `make` comes from `winget install ezwinc.make`, `choco install make`, Git Bash, or WSL; every target also works as the plain command shown below.
+
+### Pipeline
+
+Retraining from scratch is optional: the release weights already include every model. These steps also need the datasets described in [`data/README.md`](data/README.md).
+
+| Step               | Make                              | Command                                                                                |
+| ------------------ | --------------------------------- | -------------------------------------------------------------------------------------- |
+| Strength corpus    | `make prepare`                  | `kairos-prepare --out data/data_policy --pgn ... --puzzles ...`                      |
+| Base policy        | `make train`                    | `kairos-train --data data/data_policy --out runs/p1`                                 |
+| Style corpus       | `make corpus`                   | `kairos-corpus build --pgn-dir data/corpus --out data/style-data --stockfish ...`    |
+| Style policies     | `make finetune`                 | `kairos-finetune --policy runs/p1/best.pt --group romantic --out runs/style_rom ...` |
+| Candidate tree     | `make tree`                     | `kairos build --stockfish ... --depth 2`                                             |
+| Solve and evaluate | `make solve`                    | `kairos solve --policy rom=runs/style_rom/best.pt ...`                               |
+| One position       | `make play FEN="..." LAMBDA=20` | `kairos play --stockfish ... --fen "..." --lam 20`                                   |
+| Web interface      | `make serve`                    | `python app/server.py --stockfish ... --policy rom=... --port 8000`                  |
+
+`make help` lists every target. Each command accepts `--help`.
+
+## Data
+
+| Corpus    | Content                                                                                                                                                                                                                                                                                  |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Strength  | 274,098 tournament games (TWIC and an aggregated Figshare database) plus the Lichess puzzle database: 13.6 M positions, 10.2 M train, 1.7 M validation, 1.7 M test. About 79% of positions are puzzles.                                                                                  |
+| Style     | 20 players grouped a priori. **Romantic (11):** Morphy, Anderssen, Chigorin, Marshall, Spielmann, Alekhine, Tal, Bronstein, Kasparov, Shirov, Morozevich. **Positional (9):** Steinitz, Rubinstein, Capablanca, Nimzowitsch, Botvinnik, Smyslov, Petrosian, Karpov, Kramnik. |
+| Reference | Fischer (825 games), unlabeled and never used for training.                                                                                                                                                                                                                              |
+
+The two groups are an operational definition for the experiment, not a claim that every game belongs to one style.
+The style corpus keeps only the target player's moves, skips the first 8 plies, and samples up to 260 games per player and 24 positions per game.
+The positional policy is a control for the stylistic claim. Data is not versioned; see [`data/README.md`](data/README.md).
+
+## Results
+
+Numbers come from the Marco 2 report; all style comparisons use held-out games.
+
+**Base policy** (test set, 1,702,331 positions)
+
+| Subset      |  Top-1 |  Top-3 |    NLL |
+| ----------- | -----: | -----: | -----: |
+| Overall     | 80.81% | 93.37% | 0.6345 |
+| Puzzles     | 88.93% | 97.72% | 0.3658 |
+| Human games | 50.65% | 77.24% | 1.6318 |
+
+**Style fine-tuning** (romantic policy, held-out romantic games)
+
+|             |   Base | Fine-tuned |
+| ----------- | -----: | ---------: |
+| Style NLL   | 1.9239 |     1.8146 |
+| Style top-1 | 43.81% |     45.16% |
+
+Tactical top-1 dropped by at most 0.8 percentage points. Both fine-tuned policies beat the base policy on all three held-out sets, including Fischer, so part of the gain is general adaptation to human play.
+The romantic policy explains romantic players' moves better than the positional control (NLL difference -0.032, 95% CI excluding zero) and is indistinguishable from it on positional players.
+A good part of that gap comes from Morphy, Anderssen, and Chigorin.
+
+**Trade-off** (depth 1, romantic policy against a random heuristic; divergence is the fraction of positions where the move differs from the objective decision of the same search)
+
+| $\lambda$ | Divergence | Cost (cp) | Random: divergence | Random: cost (cp) |
+| ----------: | ---------: | --------: | -----------------: | ----------------: |
+|           5 |      0.176 |       1.0 |              0.143 |               0.6 |
+|          20 |      0.328 |       4.6 |              0.343 |               4.4 |
+|          80 |      0.444 |      10.2 |              0.547 |              15.4 |
+|         160 |      0.476 |      12.1 |              0.595 |              18.9 |
+
+**Alpha-beta** returns exactly the minimax value (0 mismatches on 300 positions at depth 2 and 100 at depth 3).
+Ordering own moves by the policy cuts engine calls to 68% of pure minimax at depth 2 and 54% at depth 3, against 78% and 65% with random ordering.
+
+**What did not work.** At the decision level, the romantic policy, the positional control, and the untuned base policy choose almost the same moves
+(divergence 0.328 against 0.337 at depth 1, $\lambda = 20$). The stylistic signal is small and lives in the probability distribution, not in the argmax.
+Depth 2 did not strengthen it. The current hypothesis, H2, is therefore **not confirmed at the agent level**.
+
+## Limitations
+
+- **Style is operationalized through data.** Groups are heterogeneous in era, number of games, and opponent strength; a model may learn players or eras rather than style.
+- **Stockfish is a reference, not an oracle.** Values depend on node limits, and the cost is measured by the same estimator that picks the objective move.
+- **Restricted search.** The human move is among the root candidates in 83.1% of positions, and style metrics hold only for them.
+- **Objective depth-2 search** differs from Stockfish's top-1 in 41.2% of positions at $\lambda = 0$. It is unclear whether this comes from the restricted width or from noisy estimates, so depth 1 is the main decision.
+- **$\pi$ is not calibrated.** Results at depth 2 depend on renormalizing over candidates; the main configuration was fixed beforehand and the rest is exploratory sensitivity.
+- **Unbalanced fine-tuning.** 51,261 romantic against 42,699 positional training positions, and a single seed.
+
+## Ethical considerations
+
+- **Living people.** The corpus includes five living players (Kasparov, Shirov, Morozevich, Karpov, Kramnik). Modeling a living person's decisions raises consent and use questions even with public games.
+- **Misuse.** An engine that plays in a statistically human way is structurally close to approaches that evade engine-detection systems (Regan and Haworth, 2011). That is a side effect of the stated goal, not an intended application.
+- **Authorship.** How far a playing style is attributable to an individual is an open question.
+
+## Related work
+
+Maia Chess (McIlroy-Young et al., 2020) predicts human moves by rating; KAIROS conditions on historical school and separates strength from style through $\lambda$.
+AlphaZero and Leela Chess Zero (Silver et al., 2018) motivate a learned move prior inside a search.
+Individual-behavior models (McIlroy-Young et al., 2022) need thousands of games per player, which motivates group corpora and a warm start.
+Classical adversarial search follows Russell and Norvig, *Artificial Intelligence: A Modern Approach*.
+
+## Project layout
+
+```
+src/kairos/
+  chess_common.py, chess_ext.py     board encoding, 1,968-action space, tags
+  engine.py                         Stockfish pool (MultiPV)
+  data/        prepare.py, style_corpus.py
+  models/      policy_net.py, train.py, style_finetune.py
+  search/      tree.py, policy.py, minimax.py, evaluation.py, cli.py
+app/           web interface (server.py, kairos_play.html)
+tests/         minimax logic tests (no Stockfish or GPU needed)
+stockfish/     engine binary (download separately, not versioned)
+data/  runs/   datasets, checkpoints, trees (not versioned; weights come from the v0.2.0 release)
+```
+
+## Roadmap
+
+- [X] Strength corpus, base policy, exploratory style classifier
+- [X] Style fine-tuning (romantic and positional control)
+- [X] KAIROS v2: tree in SQLite, minimax with alpha-beta, experiments A to D
+- [X] Official web interface
+- [X] Trained weights published as a release
+- [ ] Independent referee for the objective depth-2 decision (much deeper search)
+- [ ] Sampling decision $q(a) \propto \exp(Q/\lambda)$ instead of argmax
+- [ ] Fine-tuning with equal sizes and three seeds
+- [ ] Partial PGN as input (the interface takes FEN today)
+
+## Authors
+
+Luis Marioto and Maria Eduarda Tegoshi. Advisor: Livia Maria de Oliveira Ciabati.
+
+# KAIROS
+
+**Knowledge-guided Adaptive Inference for Reasoning Over Style**
+
+A chess agent that separates *how good* a move is from *how much it looks like* a given style.
+Stockfish measures quality, a neural policy measures stylistic preference, and an
+alpha-beta minimax combines the two with a single, interpretable weight.
+
+Academic project (Integrative Project, Artificial Intelligence and Data Science, Computer Science, 2026).
 
 ---
 
-## 📊 Evaluation Metrics
+## Idea
 
-The neural model and the search system are evaluated **separately**.
-
-### Neural policy metrics
-
-**Top-1 accuracy:** the highest-probability move matches the target:
+For a line of play ending in position $s_{\text{leaf}}$ with own moves $a_1 \dots a_m$:
 
 $$
-\mathrm{Top1} = \frac{1}{N} \sum_{i=1}^{N} \mathbf{1}\Bigl[\arg\max_{a \in A(s_i)} \pi_\theta(a \mid s_i) = y_i\Bigr]
+U \;=\; v(s_{\text{leaf}}) \;+\; \lambda \sum_{t=1}^{m} \log \pi(a_t \mid s_t)
 $$
 
-**Top-3 accuracy:** the target is among the three highest-ranked legal moves:
+| Term        | Source        | Meaning                                                                                             |
+| ----------- | ------------- | --------------------------------------------------------------------------------------------------- |
+| $v$       | Stockfish     | Objective value in centipawns (cp), from the agent's point of view.                                 |
+| $\pi$     | Neural policy | Prior over the agent's own moves, learned from a group of players.                                  |
+| $\lambda$ | Parameter     | Centipawns per nat. A move one nat less likely is chosen only if it costs less than $\lambda$ cp. |
 
-$$
-\mathrm{Top3} = \frac{1}{N} \sum_{i=1}^{N} \mathbf{1}\bigl[\,y_i \in \mathrm{Top3}(s_i)\,\bigr]
-$$
+The agent's nodes maximize $U$, the opponent's nodes minimize it, and the opponent has no style.
+With $\lambda = 0$ the agent plays the objective decision of the same search.
+The network never evaluates positions and never acts on the opponent's moves, so style and quality stay separate.
 
-**Negative log-likelihood (NLL):** lower means more probability on observed moves:
+At depth 1 the decision maximizes $E_q[v] - \lambda\,\mathrm{KL}(q \,\|\, \pi)$:
+$\lambda$ is the temperature that sets how much objective quality is traded for style.
 
-$$
-\text{NLL} = -\frac{1}{N} \sum_{i=1}^{N} \log \pi_\theta(y_i \mid s_i)
-$$
+## Architecture
 
-Evaluation is stratified by data source, game phase, source-by-phase combinations, and move type, to expose differences hidden by aggregate metrics. For the style policies, the NLL on held-out games of the style corpus, compared with the baseline, is also reported.
+```mermaid
+flowchart LR
+    subgraph Offline
+        A["Strength corpus"] --> B["PolicyNet"] --> C["Style fine-tuning"] --> D["Style policy"]
+    end
+    subgraph Inference
+        X["Position"] --> SF["Stockfish MultiPV"] --> T[("Candidate tree, SQLite")]
+        T --> M["Minimax with alpha-beta"]
+        D -. "log pi" .-> M
+        M --> R["Move, Q(a), ranking"]
+    end
+```
 
-### Search metrics
+| Module               | Code                             | Role                                                                 |
+| -------------------- | -------------------------------- | -------------------------------------------------------------------- |
+| M1 Strength corpus   | `kairos.data.prepare`          | Human games and Lichess puzzles to 18x8x8 tensors, split by game.    |
+| M2 PolicyNet         | `kairos.models`                | Residual CNN with Squeeze-and-Excitation, 1,968 action logits.       |
+| M3 Style corpus      | `kairos.data.style_corpus`     | One PGN per player, own moves only, annotated with Stockfish.        |
+| M4 Style fine-tuning | `kairos.models.style_finetune` | Warm start, tactical replay, KL to the base policy, regression gate. |
+| M5 Candidate tree    | `kairos.search.tree`           | Stockfish MultiPV, safety net, SQLite cache built once.              |
+| M6 Scorer            | `kairos.search.policy`         | $\log \pi$ of each candidate.                                      |
+| M7 Minimax           | `kairos.search.minimax`        | Exact alpha-beta, moves ordered by the policy.                       |
+| M8 Evaluation        | `kairos.search.evaluation`     | Experiments A to D with paired bootstrap intervals.                  |
 
-- Divergence from Stockfish top-1.
-- Mean centipawn cost, and mean cost among divergent decisions.
-- Capture, check, sacrifice, and quiet-move frequencies.
-- Bootstrap confidence intervals.
-- Paired differences between stylistic policies.
+**Candidate tree.** Own candidates are moves within 100 cp of the best, with no forced mate against, at most 6.
+Each gets the opponent's 3 best replies (within 150 cp). The root uses 16 lines at 5,000 nodes, inner nodes 1,000.
+Every analysis is stored in SQLite, so the tree is independent of the policy and of $\lambda$ and is solved offline for any setting.
 
-> [!TIP]
-> Top-1 accuracy and search divergence are **different measurements**. The former evaluates prediction against recorded human moves; the latter measures whether the final search decision departs from Stockfish's preferred move.
+**Network.** Input is 18 planes (12 pieces, side to move, 4 castling rights, en passant).
+Ten residual blocks of 128 channels with Squeeze-and-Excitation (7.07 M parameters), a main policy head plus auxiliary heads
+(origin and destination squares, phase, move type, puzzle theme). Cross-entropy is masked to legal moves, with EMA weights.
 
----
+## Quick start
 
-## 📚 Related Work
+Requires Python 3.10+ and a [Stockfish](https://stockfishchess.org/download/) binary.
 
-| Work | Relation to KAIROS |
-|---|---|
-| **Maia Chess** (McIlroy-Young et al., 2020) | Predicts human moves conditioned on rating. KAIROS conditions on historical school and separates strength from style through an explicit weight. |
-| **AlphaZero / Leela Chess Zero** (Silver et al., 2018) | A network-guided search optimized for winning, with no human style. It supports the idea of a learned prior over moves inside a search. |
-| **Learning Models of Individual Behavior in Chess** (McIlroy-Young et al., 2022) | Individual models need thousands of games per player, which motivates the group-level corpora and the warm start from a pretrained policy. |
-| **Intrinsic Chess Ratings** (Regan and Haworth, 2011) | Basis for the discussion of engine-use detection (see [Ethical Considerations](#-ethical-considerations)). |
-| **Kalagara (2024)** | Methodological precedent for the exploratory classifier; treated as a precedent, not as an authority. |
-| **Russell and Norvig, *Artificial Intelligence: A Modern Approach*** | Classical foundation for informed and adversarial search. |
+```bash
+python -m venv .venv
+source .venv/bin/activate            # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"              # GPU: install torch with CUDA first (see below)
+mkdir stockfish                      # put the Stockfish executable here
+make test
+```
 
----
+For GPU, run `make install-gpu CUDA=cu121` (adjust to your CUDA version).
+On Windows `make` comes from `winget install ezwinc.make`, `choco install make`, Git Bash, or WSL; every target also works as the plain command shown below.
 
-## 🧭 Ethical Considerations
+### Pipeline
 
-- **Modeling living people.** The corpus includes five living players (Kasparov, Shirov, Morozevich, Karpov, and Kramnik). Modeling the decision pattern of a living person raises questions of consent and use that do not apply in the same way to deceased players, even when only public games are used.
-- **Authorship.** The project reproduces statistical patterns of real players' decisions; the extent to which a playing style is attributable to an individual is an open question.
-- **Misuse.** An engine that plays in a statistically human way, instead of always optimally, is structurally close to approaches used to evade engine-detection systems in online chess. This is discussed as a limitation and is not an intended application.
+| Step               | Make                              | Command                                                                                |
+| ------------------ | --------------------------------- | -------------------------------------------------------------------------------------- |
+| Strength corpus    | `make prepare`                  | `kairos-prepare --out data/data_policy --pgn ... --puzzles ...`                      |
+| Base policy        | `make train`                    | `kairos-train --data data/data_policy --out runs/p1`                                 |
+| Style corpus       | `make corpus`                   | `kairos-corpus build --pgn-dir data/corpus --out data/style-data --stockfish ...`    |
+| Style policies     | `make finetune`                 | `kairos-finetune --policy runs/p1/best.pt --group romantic --out runs/style_rom ...` |
+| Candidate tree     | `make tree`                     | `kairos build --stockfish ... --depth 2`                                             |
+| Solve and evaluate | `make solve`                    | `kairos solve --policy rom=runs/style_rom/best.pt ...`                               |
+| One position       | `make play FEN="..." LAMBDA=20` | `kairos play --stockfish ... --fen "..." --lam 20`                                   |
+| Web interface      | `make serve`                    | `python app/server.py --stockfish ... --policy rom=... --port 8000`                  |
 
----
+`make help` lists every target. Each command accepts `--help`.
 
-## 🔣 Notation
+### Interface
 
-| Symbol | Definition |
-|---|---|
-| $s$ | Chess position. |
-| $a$ | Candidate legal move. |
-| $A(s)$ | Legal moves in position $s$. |
-| $A_{\mathrm{safe}}(s)$ | Candidates retained by the safety filter. |
-| $X$ | Neural network input tensor. |
-| $\theta$ | Neural network parameters. |
-| $z_i$ | Logit for action class $i$. |
-| $\pi_\theta(a \mid s)$ | Neural policy probability. |
-| $g(s,a)$, $g(n)$ | Stockfish objective evaluation signal (clipped). |
-| $h(s,a)$, $h(n)$ | Neural policy log-probability signal (path average at node $n$). |
-| $\mu_g,\ \mu_h$ | Root-candidate means used in normalization. |
-| $\sigma_g,\ \sigma_h$ | Root-candidate standard deviations with minimum floors. |
-| $\lambda$ | Relative coefficient of stylistic preference. |
-| $f(n)$ | Priority score used to expand a search node. |
-| $F(a)$ | Best score found in the explored subtree of root move $a$. |
-| $a^\star$ | Move selected by the search. |
-| $a^{\mathrm{SF}}$ | Stockfish top-1 move. |
-| $y_i$ | Target (human) move in training example $i$. |
-| $D_i$ | Indicator that the selected move differs from Stockfish top-1. |
-| $N$ | Number of evaluated positions. |
-| $\Delta_i$ | Paired metric difference between policies. |
-| $\mathcal{L}$ | Total multi-task training loss. |
-| $\eta_t$ | Learning rate at training step $t$. |
-| $\gamma$ | Decoupled weight-decay coefficient. |
-| $\delta_t$ | EMA decay at step $t$. |
-| $\theta^{\mathrm{EMA}}$ | Exponential moving average of model parameters. |
+`make serve` starts the official interface at [http://localhost:8000](http://localhost:8000): play against KAIROS and choose the policy, $\lambda$, and depth.
 
----
+## Data
 
-## ⚠️ Limitations
+| Corpus    | Content                                                                                                                                                                                                                                                                                  |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Strength  | 274,098 tournament games (TWIC and an aggregated Figshare database) plus the Lichess puzzle database: 13.6 M positions, 10.2 M train, 1.7 M validation, 1.7 M test. About 79% of positions are puzzles.                                                                                  |
+| Style     | 20 players grouped a priori. **Romantic (11):** Morphy, Anderssen, Chigorin, Marshall, Spielmann, Alekhine, Tal, Bronstein, Kasparov, Shirov, Morozevich. **Positional (9):** Steinitz, Rubinstein, Capablanca, Nimzowitsch, Botvinnik, Smyslov, Petrosian, Karpov, Kramnik. |
+| Reference | Fischer (825 games), unlabeled and never used for training.                                                                                                                                                                                                                              |
 
-KAIROS is a research prototype, and its conclusions depend on the experimental design.
+The two groups are an operational definition for the experiment, not a claim that every game belongs to one style.
+The style corpus keeps only the target player's moves, skips the first 8 plies, and samples up to 260 games per player and 24 positions per game.
+The positional policy is a control for the stylistic claim. Data is not versioned; see [`data/README.md`](data/README.md).
 
-| Limitation | Description |
-|---|---|
-| **Style is operationalized through data** | Player corpora are proxies for stylistic categories, not ground truth for a universal taxonomy of chess styles. The groups are heterogeneous in number of games, era, and strength of opponents. |
-| **Style versus player identity** | The exploratory classifier already shows that a model can learn players rather than style. Held-out games of the same players do not separate the two. |
-| **Stockfish is a reference, not an oracle** | Its evaluations depend on engine settings, search limits (5,000 nodes), and the analyzed position. |
-| **The candidate set constrains the search** | Moves excluded by candidate generation or safety filtering cannot normally be selected. |
-| **Best-First Search is bounded** | A limited budget does not guarantee that the best continuation is found, and the opponent's reply is fixed along each line. |
-| **The score is not a calibrated utility** | Standardization makes the signals comparable in scale, but does not prove their combination is an optimal trade-off. |
-| **Behavioral indicators are incomplete** | Capture, check, sacrifice, and quiet-move frequencies cannot independently establish stylistic authenticity; the sacrifice flag is a static heuristic. |
-| **Training data composition** | About 79% of the baseline positions are puzzles, and the rating cutoff of the game collection was not uniform. |
-| **Independent evaluation has limits** | Fischer positions are a qualitative reference, not proof of generalization. |
-| **Significance is not sufficient** | Effect sizes, uncertainty, data dependence, and experimental controls must also be considered. |
+## Results
 
----
+Numbers come from the Marco 2 report; all style comparisons use held-out games.
 
-## 🛠️ Technology
+**Base policy** (test set, 1,702,331 positions)
 
-<div align="center">
+| Subset      |  Top-1 |  Top-3 |    NLL |
+| ----------- | -----: | -----: | -----: |
+| Overall     | 80.81% | 93.37% | 0.6345 |
+| Puzzles     | 88.93% | 97.72% | 0.3658 |
+| Human games | 50.65% | 77.24% | 1.6318 |
 
-<img src="https://skillicons.dev/icons?i=python,pytorch&theme=dark" alt="Python and PyTorch"/>
+**Style fine-tuning** (romantic policy, held-out romantic games)
 
-</div>
+|             |   Base | Fine-tuned |
+| ----------- | -----: | ---------: |
+| Style NLL   | 1.9239 |     1.8146 |
+| Style top-1 | 43.81% |     45.16% |
 
-| Tool | Use |
-|---|---|
-| **Python** | Training, inference, search orchestration, and evaluation. |
-| **PyTorch** | Neural network implementation and optimization. |
-| **python-chess** | Move generation, legality, and engine communication. |
-| **Stockfish** | Candidate generation, engine evaluation, and principal variations. |
-| **PGN** | Chess-game representation. |
-| **JSONL / JSON** | Experimental inputs, configurations, and result artifacts. |
+Tactical top-1 dropped by at most 0.8 percentage points. Both fine-tuned policies beat the base policy on all three held-out sets, including Fischer, so part of the gain is general adaptation to human play.
+The romantic policy explains romantic players' moves better than the positional control (NLL difference -0.032, 95% CI excluding zero) and is indistinguishable from it on positional players.
+A good part of that gap comes from Morphy, Anderssen, and Chigorin.
 
----
+**Trade-off** (depth 1, romantic policy against a random heuristic; divergence is the fraction of positions where the move differs from the objective decision of the same search)
 
-## 🗺️ Roadmap
+| $\lambda$ | Divergence | Cost (cp) | Random: divergence | Random: cost (cp) |
+| ----------: | ---------: | --------: | -----------------: | ----------------: |
+|           5 |      0.176 |       1.0 |              0.143 |               0.6 |
+|          20 |      0.328 |       4.6 |              0.343 |               4.4 |
+|          80 |      0.444 |      10.2 |              0.547 |              15.4 |
+|         160 |      0.476 |      12.1 |              0.595 |              18.9 |
 
-- [x] Define the hybrid neural-policy and heuristic-search architecture.
-- [x] Establish the training objectives and evaluation metrics.
-- [x] Build the strength corpus and train the baseline policy.
-- [x] Run the exploratory style classifier and its leave-one-player-out validation.
-- [x] Implement the parameterized search experiment.
-- [ ] Fine-tune the romantic policy and the positional control policy.
-- [ ] Run the λ-sweep and the paired comparison between policies.
-- [ ] Organize the codebase for public release.
-- [ ] Document installation and execution requirements.
-- [ ] Publish reproducible training and search configurations.
-- [ ] Document data sources, preprocessing, and split construction.
-- [ ] Consolidate experimental results and confidence intervals.
-- [ ] Release selected checkpoints and inference examples.
-- [ ] Add tests for model outputs, legal-move handling, and search behavior.
+**Alpha-beta** returns exactly the minimax value (0 mismatches on 300 positions at depth 2 and 100 at depth 3).
+Ordering own moves by the policy cuts engine calls to 68% of pure minimax at depth 2 and 54% at depth 3, against 78% and 65% with random ordering.
 
----
+**What did not work.** At the decision level, the romantic policy, the positional control, and the untuned base policy choose almost the same moves
+(divergence 0.328 against 0.337 at depth 1, $\lambda = 20$). The stylistic signal is small and lives in the probability distribution, not in the argmax.
+Depth 2 did not strengthen it. The current hypothesis, H2, is therefore **not confirmed at the agent level**.
 
-## 💡 Project Philosophy
+## Limitations
 
-KAIROS investigates the distinction between **choosing a strong move** and **choosing a move consistent with a learned behavioral preference**.
+- **Style is operationalized through data.** Groups are heterogeneous in era, number of games, and opponent strength; a model may learn players or eras rather than style.
+- **Stockfish is a reference, not an oracle.** Values depend on node limits, and the cost is measured by the same estimator that picks the objective move.
+- **Restricted search.** The human move is among the root candidates in 83.1% of positions, and style metrics hold only for them.
+- **Objective depth-2 search** differs from Stockfish's top-1 in 41.2% of positions at $\lambda = 0$. It is unclear whether this comes from the restricted width or from noisy estimates, so depth 1 is the main decision.
+- **$\pi$ is not calibrated.** Results at depth 2 depend on renormalizing over candidates; the main configuration was fixed beforehand and the rest is exploratory sensitivity.
+- **Unbalanced fine-tuning.** 51,261 romantic against 42,699 positional training positions, and a single seed.
 
-Its central contribution is the experimental study of how a neural policy can influence a classical search procedure, with objective engine evaluations serving as a reference for the consequences of that influence.
+## Ethical considerations
 
-The aim is not to replace objective chess analysis with imitation, but to make stylistic decision-making an explicit, measurable component of an AI system.
+- **Living people.** The corpus includes five living players (Kasparov, Shirov, Morozevich, Karpov, Kramnik). Modeling a living person's decisions raises consent and use questions even with public games.
+- **Misuse.** An engine that plays in a statistically human way is structurally close to approaches that evade engine-detection systems (Regan and Haworth, 2011). That is a side effect of the stated goal, not an intended application.
+- **Authorship.** How far a playing style is attributable to an individual is an open question.
 
----
+## Related work
 
-<div align="center">
+Maia Chess (McIlroy-Young et al., 2020) predicts human moves by rating; KAIROS conditions on historical school and separates strength from style through $\lambda$.
+AlphaZero and Leela Chess Zero (Silver et al., 2018) motivate a learned move prior inside a search.
+Individual-behavior models (McIlroy-Young et al., 2022) need thousands of games per player, which motivates group corpora and a warm start.
+Classical adversarial search follows Russell and Norvig, *Artificial Intelligence: A Modern Approach*.
 
-*Learning how an agent chooses, not only what it chooses.*
+## Project layout
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=90&section=footer" width="100%" alt="Footer"/>
+```
+src/kairos/
+  chess_common.py, chess_ext.py     board encoding, 1,968-action space, tags
+  engine.py                         Stockfish pool (MultiPV)
+  data/        prepare.py, style_corpus.py
+  models/      policy_net.py, train.py, style_finetune.py
+  search/      tree.py, policy.py, minimax.py, evaluation.py, cli.py
+app/           web interface (server.py, kairos_play.html)
+tests/         minimax logic tests (no Stockfish or GPU needed)
+data/  runs/   datasets, checkpoints, trees (not versioned)
+```
 
-</div>
+## Roadmap
+
+- [X] Strength corpus, base policy, exploratory style classifier
+- [X] Style fine-tuning (romantic and positional control)
+- [X] KAIROS v2: tree in SQLite, minimax with alpha-beta, experiments A to D
+- [X] Official web interface
+- [ ] Independent referee for the objective depth-2 decision (much deeper search)
+- [ ] Sampling decision $q(a) \propto \exp(Q/\lambda)$ instead of argmax
