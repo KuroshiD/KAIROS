@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# dados, pesos, bancos e motor ficam fora do git
+data/*
+!data/README.md
+runs/*
+!runs/.gitkeep
+stockfish/
+*.pt
+*.sqlite
+*.pgn
+*.zst
+*.jsonl
+*.bin
+*.exe
+
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

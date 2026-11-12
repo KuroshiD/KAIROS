@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kairos"
+version = "0.2.0"
+description = "KAIROS - Knowledge-guided Adaptive Inference for Reasoning Over Style"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.2",        # para GPU, instale antes o build CUDA (ver README)
+    "numpy>=1.26",
+    "chess>=1.10",       # python-chess
+    "zstandard>=0.22",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+kairos-prepare  = "kairos.data.prepare:main"
+kairos-corpus   = "kairos.data.style_corpus:main"
+kairos-train    = "kairos.models.train:main"
+kairos-finetune = "kairos.models.style_finetune:main"
+kairos          = "kairos.search.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
