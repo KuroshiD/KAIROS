@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KAIROS Play</title>
+<style>
+:root{
+ --sq:min(10.5vh,10.5vw);
+ --bg:#151516;--panel:#1d1d1f;--ink:#ececee;--muted:#8e8e96;--line:#2e2e32;--soft:#242427;--hover:#2b2b2f;
+ --acc:#5f93d6;--acc-d:#4a7fc4;--acc-soft:rgba(95,147,214,.16);--acc-line:rgba(95,147,214,.45);
+ --wl:#ecd9b8;--wd:#b48a62;
+ color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "Noto Sans",system-ui,sans-serif}
+main{display:flex;gap:22px;justify-content:center;align-items:flex-start;padding:32px 16px 16px;flex-wrap:wrap}
+
+/* ---------- tabuleiro ---------- */
+#wrap{position:relative;width:calc(var(--sq)*8);height:calc(var(--sq)*8);user-select:none;-webkit-user-select:none;touch-action:none;border-radius:4px;overflow:hidden;box-shadow:0 0 0 1px #000,0 12px 34px rgba(0,0,0,.55)}
+#wrap.grab{cursor:grabbing}
+#board{display:grid;grid:repeat(8,1fr)/repeat(8,1fr);width:100%;height:100%}
+.s{position:relative}
+.l{background:var(--wl)}.d{background:var(--wd)}
+.s.last{box-shadow:inset 0 0 0 100px rgba(63,111,176,.32)}
+.s.sel{box-shadow:inset 0 0 0 100px rgba(63,111,176,.5)}
+.s.chk{background-image:radial-gradient(ellipse at center,#f00 0,#e70000 25%,rgba(169,0,0,0) 89%)}
+.s.mv::after{content:"";position:absolute;left:35%;top:35%;width:30%;height:30%;border-radius:50%;background:rgba(40,75,130,.45)}
+.s.cap::after{content:"";position:absolute;inset:0;background:radial-gradient(transparent 0,transparent 78%,rgba(40,75,130,.45) 80%)}
+.s.hov::before{content:"";position:absolute;inset:0;background:rgba(63,111,176,.28);box-shadow:inset 0 0 0 calc(var(--sq)*.05) rgba(95,147,214,.85)}
+.s i{position:absolute;font:700 calc(var(--sq)*.17)/1 sans-serif;font-style:normal;opacity:.9}
+.s .f{right:3px;bottom:2px}.s .r{left:3px;top:2px}
+.l i{color:var(--wd)}.d i{color:var(--wl)}
+#pc{position:absolute;inset:0;pointer-events:none;z-index:1}
+.pz{position:absolute;left:0;top:0;width:12.5%;height:12.5%;display:flex;align-items:center;justify-content:center;font-size:calc(var(--sq)*.84);line-height:1;
+ font-family:"Segoe UI Symbol","Noto Sans Symbols 2","DejaVu Sans",sans-serif;transition:transform .15s ease-out;will-change:transform;animation:in .15s}
+.pz.w{color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.45),0 0 2px #000,0 0 1px #000}
+.pz.b{color:#1d1b19;text-shadow:0 0 1px rgba(255,255,255,.7)}
+.pz.img{background-size:94%;background-position:center;background-repeat:no-repeat;text-shadow:none;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+.pz.drag{z-index:4;filter:drop-shadow(0 5px 7px rgba(0,0,0,.5))}
+.pz.out{opacity:0;transition:opacity .15s}
+.na .pz{transition:none!important}
+@keyframes in{from{opacity:0}}
+@media(prefers-reduced-motion:reduce){.pz{transition:none;animation:none}}
+#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+#promo{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;display:flex;background:#232326f2;border:1px solid var(--line);border-radius:10px;padding:4px;box-shadow:0 12px 34px rgba(0,0,0,.6)}
+#promo[hidden]{display:none}
+#promo button{font-size:calc(var(--sq)*.8);background:none;border:0;border-radius:8px;cursor:pointer;line-height:1;font-family:"Segoe UI Symbol","Noto Sans Symbols 2","DejaVu Sans",sans-serif}
+#promo button.w{color:#fff;text-shadow:0 0 3px #000,0 0 2px #000}#promo button.b{color:#1d1b19;text-shadow:0 0 2px #fff}
+#promo button.img{width:calc(var(--sq)*.95);height:calc(var(--sq)*.95);background-size:90%;background-position:center;background-repeat:no-repeat}
+#promo button:hover{background:var(--acc-soft)}
+
+/* ---------- painel lateral ---------- */
+aside{flex:0 0 320px;width:320px;max-width:100%;min-width:0;display:flex;flex-direction:column;gap:10px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px}
+#st{font-weight:600;color:var(--ink)}#info{color:var(--muted);font-size:12px;min-height:1.4em}
+#retryMove{margin-top:7px;padding:5px 10px;border:1px solid var(--acc-line);border-radius:6px;background:var(--acc-soft);color:#9fc1ea;font:600 12px/1.4 "Noto Sans",system-ui,sans-serif;cursor:pointer}
+#retryMove:hover{background:rgba(95,147,214,.26)}
+#retryMove[hidden]{display:none}
+#open{font-size:13px;color:var(--muted);min-height:1.3em;padding:0 2px}#open b{color:var(--ink);margin-right:4px}
+#moves{height:calc(var(--sq)*3.6);overflow:auto;padding:0}
+.row{display:grid;grid-template-columns:38px 1fr 1fr;align-items:center}
+.row:nth-child(even){background:#222225}
+.row b{color:#76767e;font-weight:500;padding:5px 0 5px 12px;font-size:13px}
+.row a{display:flex;align-items:center;gap:3px;padding:5px 8px;margin:2px 4px;border-radius:5px;cursor:pointer;font-weight:600;font-size:15px}
+.row a:hover{background:var(--hover)}.row a.cur{background:var(--acc-d);color:#fff}
+.row a .fg{font:400 17px "Segoe UI Symbol","Noto Sans Symbols 2","DejaVu Sans",sans-serif}
+#bw{display:flex;gap:8px;align-items:stretch}
+#eb{display:none;position:relative;flex:none;width:calc(var(--sq)*.34);height:calc(var(--sq)*8);background:#2a2a2d;border-radius:3px;overflow:hidden;box-shadow:0 0 0 1px #4a4a50}
+#bw.on #eb{display:block}
+#ebw{position:absolute;left:0;right:0;bottom:0;height:50%;background:#f2f2f2;transition:height .3s ease}
+#eb.fl #ebw{top:0;bottom:auto}
+#ebv{position:absolute;top:0;color:#ddd;left:0;right:0;text-align:center;font:700 10px/1 sans-serif;padding:4px 0}
+.nav{display:flex;gap:6px}
+button.b2{flex:1;padding:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;cursor:pointer;font:inherit;transition:background .15s,border-color .15s}
+button.b2:hover{background:var(--hover);border-color:#3b3b40}
+button.b2:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.language-control{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+#gameLanguage,#gamePieceSet{width:140px;padding:5px 8px;font:inherit;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px}
+
+/* ---------- análise ---------- */
+body[data-mode=play] .an-only,body[data-mode=an] .play-only{display:none!important}
+body[data-mode=play] #info{display:none}
+.ln{display:flex;gap:8px;font-size:13px;margin:3px 0}.ln b{min-width:54px;color:var(--ink)}.ln span{color:#a4a4ac}
+.hd{font-size:12px;color:var(--muted);margin:6px 0 2px}
+body[data-mode=an] aside{flex-basis:460px;width:460px}
+#anSF,#anM{height:132px;overflow-y:auto}
+.ln span{flex:1;min-width:0;line-height:1.5;overflow-wrap:anywhere}
+.fg{font:400 1.15em "Segoe UI Symbol","Noto Sans Symbols 2","DejaVu Sans",sans-serif}
+.fg.w{color:#fff;text-shadow:0 0 1px #000,0 0 2px #000}
+.fg.b{color:#111;text-shadow:0 0 1px #fff,0 0 2px #fff}
+.row a.e{cursor:default;color:#76767e}.row a.e:hover{background:none}
+.vb{padding:6px 10px;background:#19191b;border-left:3px solid var(--acc-line);color:#a4a4ac;font-size:14px;line-height:1.9}
+.vb b{color:#76767e;font-weight:500;margin:0 3px 0 6px;font-size:13px}
+.vb a{display:inline-flex;align-items:center;gap:3px;padding:1px 5px;border-radius:4px;cursor:pointer;font-weight:600;color:#d6d6da}
+.vb a:hover{background:var(--hover)}.vb a.cur{background:var(--acc-d);color:#fff}
+.var{display:block;margin-left:12px;color:var(--muted)}
+.ln b.ev{min-width:54px;text-align:center;padding:2px 4px;border-radius:4px;font-size:12px;align-self:flex-start;margin-top:3px}
+.ev.pos{background:#f2f2f2;color:#222}.ev.neg{background:#3a3a3e;color:#eee}.ev.md{background:var(--acc-d);color:#fff}
+.ln .n{color:#76767e;margin-right:2px}.ln .star{color:#e6b422}
+.ln em.mv{font-style:normal;font-weight:600;color:var(--ink)}
+@media(max-width:700px){:root{--sq:11.5vw}}
+
+/* ---------- menu: tabuleiro ao fundo + cartão flutuante ---------- */
+#menu{display:none;position:fixed;inset:0;z-index:20;flex-direction:column;overflow:auto;background:var(--bg);color:var(--ink)}
+body.menu #menu{display:flex}body.menu main{display:none}
+#menu .bg{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none;overflow:hidden}
+#menu{--bgw:min(118vmin,980px)}
+#menu .bgboard{width:var(--bgw);aspect-ratio:1;display:grid;grid:repeat(8,1fr)/repeat(8,1fr);opacity:.4;border-radius:6px;transform:rotate(-4deg);
+ -webkit-mask-image:radial-gradient(circle at center,#000 30%,transparent 76%);mask-image:radial-gradient(circle at center,#000 30%,transparent 76%)}
+#menu .bgboard span{display:grid;place-items:center;font:calc(var(--bgw)*.085)/1 "Segoe UI Symbol","Noto Sans Symbols 2",sans-serif}
+#menu .bgboard img{width:92%;height:92%;display:block}
+#menu .bgboard .l{background:var(--wl)}#menu .bgboard .d{background:var(--wd)}
+#menu .bgboard .pw{color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.4),0 0 2px #000}
+#menu .bgboard .pb{color:#1d1b19}
+#menu .topbar{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px clamp(16px,4vw,40px)}
+#menu .identity{display:flex;align-items:center;gap:10px}
+#menu .identity img{width:34px;height:34px;object-fit:cover;border-radius:9px}
+#menu .identity strong{display:block;font-size:15px;font-weight:700;letter-spacing:.04em;line-height:1.1}
+#menu .identity span{display:block;color:var(--muted);font-size:11px;line-height:1.2}
+#menu .topbar-right{display:flex;align-items:center;gap:14px}
+#menu .language-select{width:auto;min-width:140px;height:34px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font:inherit;font-size:13px}
+#menu .server-state{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:12px}
+#menu .server-state i{width:7px;height:7px;border-radius:50%;background:#55555c}
+#menu .server-state.ready i{background:var(--acc);box-shadow:0 0 0 3px var(--acc-soft)}
+#menu .stage{position:relative;z-index:1;flex:1;display:grid;place-items:center;padding:12px 16px 24px}
+#menu .card{width:min(440px,100%);padding:30px 28px 24px;border:1px solid var(--line);border-radius:18px;background:rgba(26,26,28,.93);box-shadow:0 28px 80px rgba(0,0,0,.6),0 2px 6px rgba(0,0,0,.4);backdrop-filter:blur(8px)}
+#menu .card h1{margin:0;font-size:clamp(28px,5vw,34px);font-weight:700;letter-spacing:-.035em;line-height:1.08;color:#f4f4f6}
+#menu .card h1 .h2{color:#86868e}
+#menu .card .lead{margin:12px 0 22px;color:#a4a4ac;font-size:14px;line-height:1.6}
+#menu .play-action button,#menu .analysis-card button{display:flex;width:100%;align-items:center;justify-content:center;gap:9px;min-height:46px;padding:10px 14px;border:1px solid transparent;border-radius:10px;font:600 14px/1.2 "Noto Sans",system-ui,sans-serif;cursor:pointer;transition:background .15s,border-color .15s,box-shadow .15s}
+#menu .play-action button svg,#menu .analysis-card button svg{width:17px;height:17px;flex:none}
+#menu .play-action #goPlay:not(:disabled){background:var(--acc);color:#0d1b2e;box-shadow:0 6px 20px rgba(95,147,214,.25)}
+#menu .play-action #goPlay:not(:disabled):hover{background:#7aa7e0}
+#menu .play-action button:disabled,#menu .analysis-card button:disabled{opacity:.4;cursor:wait}
+#menu .play-action{margin-bottom:20px}
+#menu .config-prompt h2{margin:0 0 8px;color:var(--ink);font-size:13px;font-weight:600}
+#menu .config-prompt .subtitle{display:none}
+#menu .side-choice{display:flex;gap:8px}
+#menu .side-choice label{position:relative;display:flex;flex:1;min-width:0;min-height:50px;align-items:center;justify-content:center;gap:8px;margin:0;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);cursor:pointer;transition:border-color .15s,background .15s}
+#menu .side-choice label:hover{border-color:#44444b}
+#menu .side-choice label:has(input:checked){border-color:var(--acc);background:var(--acc-soft);box-shadow:0 0 0 1px var(--acc)}
+#menu .side-choice input{position:absolute;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+#menu .side-choice label:focus-within{outline:2px solid var(--acc);outline-offset:2px}
+#menu .side-choice .side-icon{font:400 24px/1 "Segoe UI Symbol","Noto Sans Symbols 2",sans-serif;pointer-events:none;display:grid;place-items:center}
+#menu .side-choice .side-icon img{width:34px;height:34px;display:block;filter:drop-shadow(0 1px 1px rgba(0,0,0,.45))}
+#menu .side-choice [data-side=w] .side-icon{color:#fff}
+#menu .side-choice [data-side=b] .side-icon{color:#17171a;-webkit-text-stroke:.8px #d4d4d9}
+#menu .side-choice [data-side=r] .side-icon{font:600 17px/1 sans-serif;color:var(--muted)}
+#menu .side-choice .side-label{font-size:12px;font-weight:600;pointer-events:none}
+#menu .prow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0 0;color:#a4a4ac;font-size:13px;font-weight:600}
+#menu .prow select{width:180px;height:36px;padding:0 30px 0 10px;border:1px solid var(--line);border-radius:8px;background-color:var(--panel);color:var(--ink);font:500 13px/1.2 "Noto Sans",system-ui,sans-serif;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%238e8e96' stroke-width='1.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}
+#menu .config-toggle{display:flex;width:100%;align-items:center;justify-content:space-between;gap:8px;margin-top:16px;padding:12px 2px 0;border:0;border-top:1px solid var(--line);background:none;color:inherit;cursor:pointer}
+#menu .config-toggle:focus-visible{outline:2px solid var(--acc);outline-offset:4px;border-radius:4px}
+#menu .config-toggle-label{color:#a4a4ac;font-size:13px;font-weight:600}
+#menu .config-arrow{width:18px;height:18px;flex:none;color:var(--muted);transition:transform .2s}
+#menu .config-toggle[aria-expanded=true] .config-arrow{transform:rotate(180deg)}
+#menu .config-options[hidden]{display:none}
+#menu .config-options{padding-top:14px}
+#menu .settings-title{display:none}
+#menu .field-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#menu .help{position:relative;display:inline-grid;place-items:center;width:17px;height:17px;flex:none;padding:0;border:1px solid #4a4a52;border-radius:50%;background:transparent;color:var(--muted);font:700 11px/1 sans-serif;cursor:help}
+#menu .help::after{position:absolute;z-index:5;right:0;bottom:calc(100% + 8px);width:min(240px,70vw);padding:9px 11px;border:1px solid #3a3a40;border-radius:8px;background:#26262a;color:var(--ink);box-shadow:0 10px 30px rgba(0,0,0,.5);font:400 12px/1.45 "Noto Sans",system-ui,sans-serif;text-align:left;content:attr(data-tip);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .15s}
+#menu .help:hover::after,#menu .help:focus-visible::after{opacity:1;visibility:visible}
+#menu .help:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+#menu .fields{display:grid;grid-template-columns:1fr 1fr;gap:14px 12px}
+#menu .config-options>.fields .field{grid-column:1/-1}
+#menu .field{display:flex;flex-direction:column;gap:6px;min-width:0;margin:0;color:#a4a4ac;font-size:12px;font-weight:600}
+#menu .field select,#menu .field input[type=number]{width:100%;height:40px;padding:0 11px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font:500 14px/1.2 "Noto Sans",system-ui,sans-serif}
+#menu .field select{appearance:none;padding-right:32px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%238e8e96' stroke-width='1.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+#menu .field select:focus,#menu .field input:focus{border-color:var(--acc);outline:0;box-shadow:0 0 0 3px var(--acc-soft)}
+#menu .range-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px;padding:14px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+#menu .range-field{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;color:#a4a4ac;font-size:12px;font-weight:600}
+#menu .range-field .field-heading{grid-column:1/-1}
+#menu .range-field output{color:var(--ink);font-size:12px;font-variant-numeric:tabular-nums}
+#menu input[type=range]{grid-column:1/-1;width:100%;height:4px;margin:2px 0;accent-color:var(--acc);cursor:pointer}
+#menu .advanced{margin-top:14px}
+#menu .advanced-title{margin:0 0 10px;color:var(--muted);font-size:12px;font-weight:600}
+#menu .analysis-card{margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
+#menu .analysis-card h2{margin:0;color:var(--ink);font-size:14px;font-weight:600}
+#menu .analysis-card p{margin:4px 0 12px;color:var(--muted);font-size:12px;line-height:1.5}
+#menu .analysis-card button:not(:disabled){border-color:var(--acc-line);background:transparent;color:#9fc1ea}
+#menu .analysis-card button:not(:disabled):hover{background:var(--acc-soft)}
+#menu #retryEngine{margin:8px 0 0;padding:4px 0;border:0;background:none;color:#9fc1ea;font:600 12px/1.4 "Noto Sans",system-ui,sans-serif;text-decoration:underline;cursor:pointer}
+#menu #retryEngine[hidden]{display:none}
+#mst{min-height:1.2em;margin-top:10px;color:#ff9b93;font-size:12px}
+#menu .footer{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 16px 18px;color:#6f6f77;font-size:11px;text-align:center}
+@media(min-width:1200px) and (min-aspect-ratio:16/10){#menu{--bgw:min(138vmin,1500px)}#menu .bgboard{opacity:.62;-webkit-mask-image:radial-gradient(circle at center,#000 42%,transparent 84%);mask-image:radial-gradient(circle at center,#000 42%,transparent 84%)}}
+@media(max-width:480px){#menu .topbar{flex-wrap:wrap}#menu .card{padding:24px 18px 20px}#menu .topbar-right{gap:8px}#menu .language-select{min-width:120px}}
+</style></head>
+<body class="menu" data-mode="play">
+<div id="menu">
+ <div class="bg" aria-hidden="true"><div class="bgboard" id="bgBoard"></div></div>
+ <header class="topbar">
+  <div class="identity"><img src="logo.png" alt="" onerror="this.style.display='none'"><div><strong>KAIROS</strong><span>Chess Lab</span></div></div>
+  <div class="topbar-right">
+   <select id="language" class="language-select" aria-label="Language">
+    <option value="en">🇬🇧 English</option>
+    <option value="pt">🇧🇷 Português</option>
+    <option value="es">🇪🇸 Español</option>
+   </select>
+   <div class="server-state" id="menuStatus"><i></i><span data-i18n="connecting">Connecting to engine</span></div>
+  </div>
+ </header>
+ <div class="stage">
+  <section class="card">
+   <h1 id="heroTitle"><span data-i18n="heroFirst">The best move isn't</span><br><span class="h2" data-i18n="heroSecond">the only good one.</span></h1>
+   <p class="lead" data-i18n="heroText">Play an engine that picks among sound moves by style, not just strength. Or explore any position on the analysis board.</p>
+   <div class="play-action">
+    <button id="goPlay" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 5.8v12.4L18 12 8 5.8Z" fill="currentColor"/></svg><span data-i18n="playButton">Play against KAIROS</span></button>
+   </div>
+   <div class="config-head">
+    <div class="config-prompt">
+     <div class="config-prompt-copy"><h2 data-i18n="chooseSide">Play as</h2><div class="subtitle" data-i18n="sideHint">White moves first.</div></div>
+     <div class="side-choice" role="radiogroup" aria-label="Choose your side" data-i18n-aria="chooseSide">
+      <label data-side="w" title="White" data-i18n-title="white">
+       <input type="radio" name="side" value="w" checked><span class="side-icon" aria-hidden="true">♚︎</span><span class="side-label" data-i18n="white">White</span>
+      </label>
+      <label data-side="r" title="Random" data-i18n-title="random">
+       <input type="radio" name="side" value="r"><span class="side-icon" aria-hidden="true">?</span><span class="side-label" data-i18n="random">Random</span>
+      </label>
+      <label data-side="b" title="Black" data-i18n-title="black">
+       <input type="radio" name="side" value="b"><span class="side-icon" aria-hidden="true">♚︎</span><span class="side-label" data-i18n="black">Black</span>
+      </label>
+     </div>
+    </div>
+    <label class="prow"><span data-i18n="pieces">Pieces</span><select id="pieceSet"></select></label>
+    <button id="configToggle" class="config-toggle" type="button" aria-expanded="false" aria-controls="configOptions">
+     <span class="config-toggle-label" data-i18n="advancedSettings">Playing style</span>
+     <svg class="config-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+   </div>
+   <div id="configOptions" class="config-options" hidden>
+    <h3 class="settings-title" data-i18n="kairosSettings">Playing style</h3>
+    <div class="fields">
+     <label class="field"><span class="field-heading"><span data-i18n="model">Style</span><button class="help" type="button" data-tip-key="helpModel" aria-label="About style">!</button></span><select id="pol"></select></label>
+    </div>
+    <div class="range-grid">
+     <label class="range-field"><span class="field-heading"><span data-i18n="lambda">Lambda</span><button class="help" type="button" data-tip-key="helpLambda" aria-label="About lambda">!</button></span><output id="lamv">1</output><input id="lam" type="range" min="0" max="4" step="0.25" value="1"></label>
+     <label class="range-field"><span class="field-heading"><span data-i18n="temperature">Temperature</span><button class="help" type="button" data-tip-key="helpTemperature" aria-label="About temperature">!</button></span><output id="tmpv">0.7</output><input id="tmp" type="range" min="0" max="2" step="0.05" value="0.7"></label>
+    </div>
+    <div class="advanced">
+     <div class="advanced-title" data-i18n="kairosSearch">Search</div>
+     <div class="fields">
+      <label class="field"><span class="field-heading"><span data-i18n="budget">Budget</span><button class="help" type="button" data-tip-key="helpBudget" aria-label="About budget">!</button></span><input id="bud" type="number" min="0" max="6" value="6"></label>
+      <label class="field"><span class="field-heading"><span data-i18n="depth">Depth</span><button class="help" type="button" data-tip-key="helpDepth" aria-label="About depth">!</button></span><input id="dep" type="number" min="1" max="3" value="3"></label>
+     </div>
+    </div>
+   </div>
+   <section class="analysis-card" aria-labelledby="analysisTitle">
+    <h2 id="analysisTitle" data-i18n="analysisTitle">Analysis board</h2>
+    <p data-i18n="analysisHint">Explore positions and variations at your own pace, with the evaluation bar and opening names.</p>
+    <button id="goAn" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 18.5h16M6 15l4-4 3 2 5-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18" cy="7" r="1.5" fill="currentColor"/></svg><span data-i18n="analyzeButton">Open analysis board</span></button>
+   </section>
+   <div id="mst" role="status"></div>
+   <button id="retryEngine" type="button" data-i18n="tryAgain" hidden>Try again</button>
+  </section>
+ </div>
+ <footer class="footer"><span class="project-title">KAIROS · <span data-i18n="footer">Knowledge-guided Adaptive Inference for Reasoning Over Style</span></span><span class="academic-project" data-i18n="academicProject">Academic project · Computer Science</span></footer>
+</div>
+<main>
+<div id="bw"><div id="eb"><div id="ebw"></div><span id="ebv"></span></div>
+<div id="wrap"><div id="board"></div><div id="pc"></div><svg id="ov" viewBox="0 0 8 8"></svg><div id="promo" hidden></div></div></div>
+<aside>
+ <div class="box an-only" id="an">
+  <div class="hd" style="margin-top:0" data-i18n="stockfishLines">Stockfish: top 3 lines, up to 5 moves per side (White's evaluation)</div><div id="anSF"></div>
+  <div class="hd" data-i18n="modelLines">Model: 3 predicted lines, up to 5 moves per side (% = first-move probability; ★ = also in Stockfish's top 3)</div><div id="anM"></div>
+ </div>
+ <div class="box"><div id="st" data-i18n="loading">Loading…</div><button id="retryMove" type="button" data-i18n="tryAgain" hidden>Try again</button><div id="info"></div></div>
+ <div id="open"></div>
+ <div class="box" id="moves"></div>
+ <div class="nav">
+  <button class="b2" data-n="f" title="Start (↑)" data-i18n-title="start">&laquo;</button><button class="b2" data-n="-1" title="Previous (←)" data-i18n-title="previous">&lsaquo;</button>
+  <button class="b2" data-n="1" title="Next (→)" data-i18n-title="next">&rsaquo;</button><button class="b2" data-n="l" title="End (↓)" data-i18n-title="end">&raquo;</button>
+ </div>
+ <div class="nav">
+  <button class="b2" id="new" data-i18n="newGame">New game</button><button class="b2" id="undo" data-i18n="undo">Undo</button>
+  <button class="b2" id="flip" title="Flip board (f)" data-i18n="flip" data-i18n-title="flipTitle">Flip</button><button class="b2" id="menuBtn" data-i18n="menu">Menu</button>
+ </div>
+ <label class="language-control"><span data-i18n="language">Language</span><select id="gameLanguage" aria-label="Language">
+  <option value="en">🇬🇧 English</option><option value="pt">🇧🇷 Português</option><option value="es">🇪🇸 Español</option>
+ </select></label>
+ <label class="language-control"><span data-i18n="pieces">Pieces</span><select id="gamePieceSet" aria-label="Pieces"></select></label>
+ <div style="font-size:12px;color:#8e8e96" data-i18n="boardHelp">Drag a piece or click its source and destination. Arrows: right-drag (green); Shift red, Ctrl blue, Alt yellow. Left-click clears.</div>
+</aside></main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script>
+const $=id=>document.getElementById(id),API=location.protocol==='file:'?'http://localhost:8000':'';
+const TEXT={
+ en:{pieces:'Pieces',language:'Language',connecting:'Connecting to engine',connected:'Engine ready',disconnected:'Engine unavailable',
+ eyebrow:'Style-guided chess',heroFirst:"The best move isn't",heroSecond:'the only good one.',heroText:'Play an engine that picks among sound moves by style, not just strength. Or explore any position on the analysis board.',
+ chooseSide:'Play as',sideHint:'White moves first.',advancedSettings:'Playing style',hideSettings:'Hide style settings',analysisTitle:'Analysis board',analysisHint:'Explore positions and variations at your own pace, with the evaluation bar and opening names.',white:'White',random:'Random',black:'Black',kairosSettings:'Playing style',model:'Style',styleRomantic:'Romantic',stylePositional:'Positional',styleNeutral:'Neutral',lambda:'Style weight',temperature:'Temperature',kairosSearch:'Search',budget:'Search effort',depth:'Lookahead',helpLabel:'Explain this setting',helpModel:'Romantic: attack and sacrifices. Positional: patience and small advantages. Neutral: human-like, no school.',helpLambda:"0 = Stockfish's best move. Higher = follows the style more, even at some cost.",helpTemperature:'Controls randomness when choosing among top moves. Higher values vary play more.',helpBudget:'More effort looks further ahead, and takes longer.',helpDepth:'How many of its own moves it considers ahead.',tryAgain:'Try again',playButton:'Play against KAIROS',analyzeButton:'Open analysis board',footer:'Knowledge-guided Adaptive Inference for Reasoning Over Style',academicProject:'Academic project · Computer Science',
+  stockfishLines:"Stockfish: top 3 lines, up to 5 moves per side (White's evaluation)",modelLines:"Model: 3 predicted lines, up to 5 moves per side (% = first-move probability; ★ = also in Stockfish's top 3)",
+  loading:'Loading…',start:'Start (↑)',previous:'Previous (←)',next:'Next (→)',end:'End (↓)',newGame:'New game',undo:'Undo',flip:'Flip',flipTitle:'Flip board (f)',menu:'Menu',
+  boardHelp:'Drag a piece or click its source and destination. Arrows: right-drag (green); Shift red, Ctrl blue, Alt yellow. Left-click clears.',
+  checkmate:'Checkmate. {winner} wins.',draw:'Draw.',thinking:'KAIROS is thinking…',yourTurn:'Your turn.',kairosTurn:"KAIROS's turn.",whiteToMove:'White to move.',blackToMove:'Black to move.',
+  noBook:'Outside the opening book',moveInfo:'{san} | Stockfish top-1: {top} | cost {cost} cp | {relation}',diverged:'different from top-1',sameAsTop:'same as top-1',
+  retrying:'KAIROS move failed. Retrying ({attempt}/{total})…',moveError:"Couldn't reach the engine. Try again in a moment.",analysisError:'Error: {error}',serverMissing:'Engine unavailable. Make sure it is running, then try again.'},
+ pt:{pieces:'Peças',language:'Idioma',connecting:'Conectando ao motor',connected:'Motor pronto',disconnected:'Motor indisponível',
+  eyebrow:'Xadrez guiado por estilo',heroFirst:'O melhor lance não é',heroSecond:'o único lance bom.',heroText:'Jogue contra um motor que escolhe entre lances sólidos pelo estilo, e não só pela força. Ou explore qualquer posição no tabuleiro de análise.',
+  chooseSide:'Jogar com',sideHint:'As brancas começam.',advancedSettings:'Estilo de jogo',hideSettings:'Ocultar configurações de estilo',analysisTitle:'Tabuleiro de análise',analysisHint:'Explore posições e variações no seu ritmo, com a barra de avaliação e o nome das aberturas.',white:'Brancas',random:'Aleatório',black:'Pretas',kairosSettings:'Estilo de jogo',model:'Estilo',styleRomantic:'Romântico',stylePositional:'Posicional',styleNeutral:'Neutro',lambda:'Peso do estilo',temperature:'Temperatura',kairosSearch:'Busca',budget:'Esforço de busca',depth:'Antecipação',helpLabel:'Explicar esta configuração',helpModel:'Romântico: ataque e sacrifícios. Posicional: paciência e pequenas vantagens. Neutro: humano, sem escola.',helpLambda:'0 = melhor lance do Stockfish. Maior = segue mais o estilo, mesmo com algum custo.',helpTemperature:'Controla a aleatoriedade ao escolher entre os melhores lances. Valores maiores variam mais o jogo.',helpBudget:'Mais esforço olha mais adiante, e demora mais.',helpDepth:'Quantos lances próprios ele considera à frente.',tryAgain:'Tentar novamente',playButton:'Jogar contra o KAIROS',analyzeButton:'Abrir tabuleiro de análise',footer:'Knowledge-guided Adaptive Inference for Reasoning Over Style',academicProject:'Projeto acadêmico · Ciência da Computação',
+  stockfishLines:'Stockfish: 3 melhores linhas, até 5 lances de cada lado (avaliação das brancas)',modelLines:'Modelo: 3 linhas previstas, até 5 lances de cada lado (% = chance do primeiro lance; ★ = também está no top 3 do Stockfish)',
+  loading:'Carregando…',start:'Início (↑)',previous:'Anterior (←)',next:'Próximo (→)',end:'Fim (↓)',newGame:'Novo jogo',undo:'Desfazer',flip:'Virar',flipTitle:'Virar tabuleiro (f)',menu:'Menu',
+  boardHelp:'Arraste uma peça ou clique na origem e no destino. Setas: arraste com o botão direito (verde); Shift vermelho, Ctrl azul, Alt amarelo. Clique esquerdo limpa.',
+  checkmate:'Xeque-mate. {winner} vencem.',draw:'Empate.',thinking:'KAIROS está pensando…',yourTurn:'Sua vez.',kairosTurn:'Vez do KAIROS.',whiteToMove:'Brancas jogam.',blackToMove:'Pretas jogam.',
+  noBook:'Fora do livro de aberturas',moveInfo:'{san} | Stockfish top-1: {top} | custo {cost} cp | {relation}',diverged:'diferente do top-1',sameAsTop:'igual ao top-1',
+  retrying:'A jogada do KAIROS falhou. Tentando novamente ({attempt}/{total})…',moveError:'Não foi possível falar com o motor. Tente novamente em instantes.',analysisError:'Erro: {error}',serverMissing:'Motor indisponível. Verifique se está em execução e tente novamente.'},
+ es:{pieces:'Piezas',language:'Idioma',connecting:'Conectando al motor',connected:'Motor listo',disconnected:'Motor no disponible',
+  eyebrow:'Ajedrez guiado por estilo',heroFirst:'La mejor jugada no es',heroSecond:'la única buena.',heroText:'Juega contra un motor que elige entre jugadas sólidas según su estilo, no solo su fuerza. O explora cualquier posición en el tablero de análisis.',
+  chooseSide:'Jugar con',sideHint:'Las blancas mueven primero.',advancedSettings:'Estilo de juego',hideSettings:'Ocultar ajustes de estilo',analysisTitle:'Tablero de análisis',analysisHint:'Explora posiciones y variantes a tu ritmo, con la barra de evaluación y los nombres de las aperturas.',white:'Blancas',random:'Al azar',black:'Negras',kairosSettings:'Estilo de juego',model:'Estilo',styleRomantic:'Romántico',stylePositional:'Posicional',styleNeutral:'Neutro',lambda:'Peso del estilo',temperature:'Temperatura',kairosSearch:'Búsqueda',budget:'Esfuerzo de búsqueda',depth:'Anticipación',helpLabel:'Explicar este ajuste',helpModel:'Romántico: ataque y sacrificios. Posicional: paciencia y pequeñas ventajas. Neutro: estilo humano, sin escuela.',helpLambda:'0 = mejor jugada de Stockfish. Cuanto mayor, más sigue el estilo, aunque tenga cierto coste.',helpTemperature:'Controla la aleatoriedad al elegir entre las mejores jugadas. Los valores más altos varían más el juego.',helpBudget:'Más esfuerzo permite mirar más adelante, pero lleva más tiempo.',helpDepth:'Cuántas jugadas propias considera por adelantado.',tryAgain:'Intentar de nuevo',playButton:'Jugar contra KAIROS',analyzeButton:'Abrir tablero de análisis',footer:'Knowledge-guided Adaptive Inference for Reasoning Over Style',academicProject:'Proyecto académico · Informática',
+  stockfishLines:'Stockfish: 3 mejores líneas, hasta 5 jugadas por lado (evaluación de las blancas)',modelLines:'Modelo: 3 líneas previstas, hasta 5 jugadas por lado (% = probabilidad de la primera jugada; ★ = también está entre las 3 mejores de Stockfish)',
+  loading:'Cargando…',start:'Inicio (↑)',previous:'Anterior (←)',next:'Siguiente (→)',end:'Final (↓)',newGame:'Nueva partida',undo:'Deshacer',flip:'Girar',flipTitle:'Girar el tablero (f)',menu:'Menú',
+  boardHelp:'Arrastra una pieza o haz clic en el origen y el destino. Flechas: arrastra con el botón derecho (verde); Shift rojo, Ctrl azul, Alt amarillo. Clic izquierdo para borrar.',
+  checkmate:'Jaque mate. Ganan las {winner}.',draw:'Tablas.',thinking:'KAIROS está pensando…',yourTurn:'Tu turno.',kairosTurn:'Turno de KAIROS.',whiteToMove:'Juegan las blancas.',blackToMove:'Juegan las negras.',
+  noBook:'Fuera del libro de aperturas',moveInfo:'{san} | mejor de Stockfish: {top} | coste {cost} cp | {relation}',diverged:'distinta de la mejor',sameAsTop:'igual a la mejor',
+  retrying:'Falló la jugada de KAIROS. Reintentando ({attempt}/{total})…',moveError:'No se pudo conectar con el motor. Inténtalo de nuevo en un momento.',analysisError:'Error: {error}',serverMissing:'Motor no disponible. Comprueba que esté en ejecución e inténtalo de nuevo.'}
+};
+let language='en';
+let policyNames=[];
+function updatePolicyLabels(){
+ const labels={rom:'styleRomantic',romantic:'styleRomantic',pos:'stylePositional',positional:'stylePositional',base:'styleNeutral',neutral:'styleNeutral'};
+ const select=$('pol');
+ for(const option of select.options){
+  const key=labels[option.value.trim().toLowerCase()];
+  option.textContent=key?tr(key):option.value;
+ }
+}
+const tr=(key,values={})=>Object.entries(values).reduce((text,[name,value])=>text.replace(`{${name}}`,value),TEXT[language][key]);
+function setLanguage(value){
+ language=value in TEXT?value:'en';
+ document.documentElement.lang=language==='pt'?'pt-BR':language==='es'?'es':'en';
+ $('language').value=language;
+ $('gameLanguage').value=language;
+ $('language').setAttribute('aria-label',tr('language'));
+ document.querySelectorAll('[data-i18n-aria]').forEach(el=>{el.setAttribute('aria-label',tr(el.dataset.i18nAria))});
+ document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=tr(el.dataset.i18n)});
+ document.querySelectorAll('[data-i18n-title]').forEach(el=>{el.title=tr(el.dataset.i18nTitle)});
+ document.querySelectorAll('[data-tip-key]').forEach(el=>{el.dataset.tip=tr(el.dataset.tipKey);el.setAttribute('aria-label',tr('helpLabel'))});
+ const settingsOpen=$('configToggle').getAttribute('aria-expanded')==='true';
+ $('configToggle').querySelector('.config-toggle-label').textContent=tr(settingsOpen?'hideSettings':'advancedSettings');
+ updatePolicyLabels();
+ panel();
+}
+try{language=localStorage.getItem('kairos_language')||'en'}catch(e){language='en'}
+const GL={k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'},F='abcdefgh';
+const G={game:new Chess(),moves:[],view:0,prev:0,flip:false,me:'w',mode:'play',sel:null,legal:[],hov:null,busy:false,engineStatus:null,arrows:[],an:null,anAt:-1,nodes:[],root:null,cur:null,rc:null,rcTo:null,rcCol:'',ptr:null,noAnim:null,seed:0};
+let lastGameSeed=0;
+function nextGameSeed(){lastGameSeed=Math.max(Math.floor(performance.now()*1000),lastGameSeed+1);return lastGameSeed}
+let P={},SQ={};
+let NM={},NC=0;const mk=(move,parent)=>{const node={m:move,par:parent,kids:[],id:++NC};NM[node.id]=node;return node};
+const rep=i=>{const c=new Chess();G.moves.slice(0,i).forEach(m=>c.move({from:m.from,to:m.to,promotion:m.promotion}));return c};
+const pos=i=>i===G.moves.length?G.game:rep(i);
+const B=()=>G.mode==='an'?pos(G.view):G.game;
+function setLine(node){const path=[];for(let x=node;x.par;x=x.par)path.unshift(x);
+ const depth=path.length;let x=node;while(x.kids.length){x=x.kids[0];path.push(x)}
+ G.nodes=path;G.moves=path.map(x=>x.m);G.view=depth;G.cur=node;G.game=rep(G.moves.length)}
+const disp=s=>{const f=F.indexOf(s[0]),r=+s[1]-1;return G.flip?[7-f,r]:[f,7-r]};
+const tf=s=>{const[c,r]=disp(s);return `translate(${c*100}%,${r*100}%)`};
+const xy=s=>{const[c,r]=disp(s);return[c+.5,r+.5]};
+const dist=(a,b)=>Math.hypot(F.indexOf(a[0])-F.indexOf(b[0]),a[1]-b[1]);
+const sqEv=e=>{const R=$('board').getBoundingClientRect(),x=(e.clientX-R.left)/R.width*8,y=(e.clientY-R.top)/R.height*8;if(x<0||y<0||x>=8||y>=8)return null;const c=Math.floor(x),r=Math.floor(y);return G.flip?F[7-c]+(r+1):F[c]+(8-r)};
+const colOf=e=>e.shiftKey?'#882020':e.ctrlKey||e.metaKey?'#003088':e.altKey?'#e68f00':'#15781b';
+function arrow(a){const[x1,y1]=xy(a.from),[x2,y2]=xy(a.to);
+ if(a.from===a.to)return `<circle cx="${x1}" cy="${y1}" r=".46" fill="none" stroke="${a.col}" stroke-width=".07" opacity=".8"/>`;
+ const dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy),ux=dx/L,uy=dy/L,hl=.42,hw=.3,sw=.1,ex=x2-ux*hl,ey=y2-uy*hl,sx=x1+ux*.18,sy=y1+uy*.18,px=-uy,py=ux;
+ const Q=[[sx+px*sw,sy+py*sw],[ex+px*sw,ey+py*sw],[ex+px*hw,ey+py*hw],[x2,y2],[ex-px*hw,ey-py*hw],[ex-px*sw,ey-py*sw],[sx-px*sw,sy-py*sw]];
+ return `<polygon points="${Q.map(p=>p.join(',')).join(' ')}" fill="${a.col}" opacity="${a.op||.8}"/>`}
+function buildSq(){const h=$('board');h.innerHTML='';SQ={};
+ for(let i=0;i<8;i++)for(let j=0;j<8;j++){const r=G.flip?i:7-i,f=G.flip?7-j:j,n=F[f]+(r+1),d=document.createElement('div');
+  d.className='s '+((f+r)%2?'l':'d');
+  if(j===0)d.insertAdjacentHTML('beforeend',`<i class="r">${r+1}</i>`);
+  if(i===7)d.insertAdjacentHTML('beforeend',`<i class="f">${F[f]}</i>`);
+  SQ[n]=d;h.append(d)}}
+function paintSq(){const c=pos(G.view),lm=G.moves[G.view-1],live=G.mode==='an'||G.view===G.moves.length;let ks=null;
+ if(c.in_check()){const b=c.board();for(let r=0;r<8;r++)for(let f=0;f<8;f++){const p=b[r][f];if(p&&p.type==='k'&&p.color===c.turn())ks=F[f]+(8-r)}}
+ for(const n in SQ){const d=SQ[n],lg=live&&G.legal.find(m=>m.to===n),occ=lg&&(c.get(n)||lg.flags.includes('e'));
+  d.classList.toggle('last',!!lm&&(n===lm.from||n===lm.to));
+  d.classList.toggle('sel',live&&G.sel===n);d.classList.toggle('chk',n===ks);d.classList.toggle('hov',G.hov===n);
+  d.classList.toggle('cap',!!occ);d.classList.toggle('mv',!!lg&&!occ)}}
+const setK=(e,k)=>{e.dataset.k=k;const u=pieceSet!=='unicode';e.className='pz '+k[0]+(u?' img':'');
+ if(u){e.style.backgroundImage=`url("${pieceURL(k)}")`;e.textContent=''}else{e.style.backgroundImage='';e.textContent=GL[k[1]]+'\uFE0E'}};
+function sync(c,hint){
+ const tgt={};c.board().forEach((row,ri)=>row.forEach((p,f)=>{if(p)tgt[F[f]+(8-ri)]=p.color+p.type}));
+ const old={...P},nx={},pc=$('pc');
+ for(const s in tgt)if(old[s]&&old[s].dataset.k===tgt[s]){nx[s]=old[s];delete old[s];delete tgt[s]}
+ if(hint&&old[hint.from]&&tgt[hint.to]){const e=old[hint.from];setK(e,tgt[hint.to]);nx[hint.to]=e;delete old[hint.from];delete tgt[hint.to]}
+ for(const s in tgt){let b=null,bd=1e9;
+  for(const o in old)if(old[o].dataset.k===tgt[s]){const d=dist(o,s);if(d<bd){bd=d;b=o}}
+  if(b){nx[s]=old[b];delete old[b]}
+  else{const e=document.createElement('div');setK(e,tgt[s]);e.style.transition='none';e.style.transform=tf(s);pc.append(e);nx[s]=e;requestAnimationFrame(()=>e.style.transition='')}}
+ for(const o in old){const e=old[o];e.classList.add('out');setTimeout(()=>e.remove(),170)}
+ for(const s in nx){const e=nx[s];
+  if(e===G.noAnim){e.style.transition='none';e.style.transform=tf(s);requestAnimationFrame(()=>e.style.transition='')}
+  else e.style.transform=tf(s)}
+ G.noAnim=null;P=nx}
+function drawArrows(){const A=[...G.arrows];
+ if(G.rc&&G.rcTo)A.push({from:G.rc,to:G.rcTo,col:G.rcCol,op:.55});
+ $('ov').innerHTML=A.map(arrow).join('')}
+const mvh=(node,ply)=>`<a data-id="${node.id}" class="${node===G.cur?'cur':''}">${fig(node.m.san,ply%2?'b':'w')}</a>`;
+const mnum=(ply,force)=>ply%2===0?`<b>${ply/2+1}.</b> `:force?`<b>${(ply+1)/2}…</b> `:'';
+function seq(n,ply,force){let h='';
+ while(n.kids.length){const k=n.kids[0];h+=mnum(ply,force)+mvh(k,ply);
+  const vs=n.kids.slice(1);vs.forEach(v=>h+=`<span class="var">(${mnum(ply,true)}${mvh(v,ply)}${seq(v,ply+1,false)})</span>`);
+  force=vs.length>0;n=k;ply++}
+ return h}
+function gridHTML(){let n=G.root,ply=0,h='',open=false;
+ while(n.kids.length){const k=n.kids[0],w=ply%2===0;
+  if(w){h+=`<div class="row"><b>${ply/2+1}</b>`;open=true}
+  else if(!open){h+=`<div class="row"><b>${(ply+1)/2}</b><a class="e">…</a>`;open=true}
+  h+=mvh(k,ply);
+  if(!w){h+='</div>';open=false}
+  const vs=n.kids.slice(1);
+  if(vs.length){if(open){h+='</div>';open=false}
+   vs.forEach(v=>h+=`<div class="vb">${mnum(ply,true)}${mvh(v,ply)}${seq(v,ply+1,false)}</div>`)}
+  n=k;ply++}
+ return h+(open?'</div>':'')}
+function playStatus(){
+ const g=G.game;
+ if(G.engineStatus)return tr(G.engineStatus.key,G.engineStatus.values);
+ if(g.in_checkmate())return checkmateStatus(g.turn());
+ if(g.in_draw())return tr('draw');
+ if(G.busy)return tr('thinking');
+ return g.turn()===G.me?tr('yourTurn'):tr('kairosTurn');
+}
+function analysisStatus(c){
+ if(c.in_checkmate())return checkmateStatus(c.turn());
+ if(c.in_draw())return tr('draw');
+ return c.turn()==='w'?tr('whiteToMove'):tr('blackToMove');
+}
+function checkmateStatus(turn){
+ const winner=tr(turn==='w'?'black':'white');
+ return tr('checkmate',{winner:language==='es'?winner.toLowerCase():winner});
+}
+function panel(){
+ const m=G.moves,g=G.game,cell=i=>m[i]?`<a data-i="${i+1}" class="${G.view===i+1?'cur':''}">${fig(m[i].san,i%2?'b':'w')}</a>`:'<a></a>';
+ let t='';for(let i=0;i<m.length;i+=2)t+=`<div class="row"><b>${i/2+1}</b>${cell(i)}${cell(i+1)}</div>`;
+ $('moves').innerHTML=G.mode==='an'?gridHTML():t;const bk=bookName();$('open').innerHTML=bk?`<b>${bk.eco}</b>${esc(bk.name)}`:(OB.size&&G.moves.length?tr('noBook'):'');const cur=$('moves').querySelector('.cur');cur&&cur.scrollIntoView({block:'nearest'});
+ $('st').textContent=playStatus();$('retryMove').hidden=G.mode!=='play'||!G.engineStatus||G.engineStatus.key!=='moveError'}
+function update(){if(G.mode==='an')G.me=pos(G.view).turn();let hint=null;
+ if(G.view===G.prev+1)hint=G.moves[G.view-1];
+ else if(G.view===G.prev-1){const m=G.moves[G.prev-1];hint={from:m.to,to:m.from}}
+ G.prev=G.view;sync(pos(G.view),hint);paintSq();drawArrows();panel();
+ if(G.mode==='an')$('st').textContent=analysisStatus(pos(G.view));
+ $('eb').classList.toggle('fl',G.flip);evTok++;clearTimeout(evT);if(G.mode==='an')evT=setTimeout(evalBar,150)}
+const promo=()=>new Promise(res=>{const o=$('promo');o.innerHTML='';o.hidden=false;
+ ['q','r','b','n'].forEach(t=>{const b=document.createElement('button');b.className=G.me;
+  if(pieceSet==='unicode')b.textContent=GL[t]+'\uFE0E';else{b.classList.add('img');b.style.backgroundImage=`url("${pieceURL(G.me+t)}")`;b.setAttribute('aria-label',t)}
+  b.onclick=()=>{o.hidden=true;res(t)};o.append(b)})});
+const canPlay=()=>G.mode==='an'?!pos(G.view).game_over():(!G.busy&&G.view===G.moves.length&&!G.game.game_over()&&G.game.turn()===G.me);
+function doMove(o){
+ if(G.mode==='an'){const move=rep(G.view).move(o);if(!move){G.noAnim=null;update();return}
+  let node=G.cur.kids.find(child=>child.m.from===move.from&&child.m.to===move.to&&child.m.promotion===move.promotion);
+  if(!node){node=mk(move,G.cur);G.cur.kids.push(node)}
+  setLine(node);G.sel=null;G.legal=[];G.hov=null;update();return}
+ const m=G.game.move(o);if(!m){G.noAnim=null;update();return}
+ G.engineStatus=null;
+ G.moves.push(m);G.view=G.moves.length;G.sel=null;G.legal=[];G.hov=null;G.an=null;G.anAt=-1;update();engine()}
+async function tryMove(from,to,el){
+ const mv=G.legal.find(m=>m.from===from&&m.to===to);if(!mv)return;
+ let pr;if(mv.flags.includes('p')){if(el){el.style.transition='none';el.style.transform=tf(to)}pr=await promo()}
+ G.noAnim=el||null;doMove({from,to,promotion:pr})}
+async function engine(){
+ if(G.mode==='an')return;
+ const c=G.game;if(G.busy||G.view!==G.moves.length||c.game_over()||c.turn()===G.me)return;
+ const maxAttempts=3;
+ G.busy=true;G.engineStatus=null;panel();
+ for(let attempt=1;attempt<=maxAttempts;attempt++){
+  try{
+   const r=await fetch(API+'/api/move',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fen:c.fen(),lam:+$('lam').value,temp:+$('tmp').value,think:typeof want==='number'?want/1000:0,policy:$('pol').value,budget:+$('bud').value,depth:+$('dep').value,seed:G.seed+G.moves.length})});
+   const j=await r.json();if(c!==G.game||G.mode!=='play')return;
+   if(!r.ok)throw new Error(j.error||`HTTP ${r.status}`);
+   if(j.error)throw new Error(j.error);
+   if(typeof j.move!=='string'||!/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(j.move))throw new Error('Invalid move response');
+   if(typeof j.san!=='string'||typeof j.top!=='string'||!Number.isFinite(j.cost)||typeof j.diverge!=='boolean')throw new Error('Incomplete move response');
+   const info=tr('moveInfo',{san:j.san,top:j.top,cost:j.cost.toFixed(0),relation:j.diverge?tr('diverged'):tr('sameAsTop')});
+   const m=c.move({from:j.move.slice(0,2),to:j.move.slice(2,4),promotion:j.move[4]});
+   if(!m)throw new Error('KAIROS returned an illegal move');
+   G.moves.push(m);G.view=G.moves.length;G.engineStatus=null;
+   $('info').textContent=info;
+   break;
+  }catch(e){
+   if(c!==G.game||G.mode!=='play')return;
+   const error=e instanceof Error?e:new Error(String(e));
+   if(attempt===maxAttempts){G.engineStatus={key:'moveError',values:{error:error.message,attempts:maxAttempts}};break}
+   G.engineStatus={key:'retrying',values:{attempt,total:maxAttempts}};panel();
+   await new Promise(resolve=>setTimeout(resolve,500*attempt));
+   if(c!==G.game||G.mode!=='play')return;
+  }
+ }
+ G.busy=false;update()}
+function newGame(){NM={};NC=0;G.root=mk(null,null);G.cur=G.root;G.nodes=[];G.busy=false;G.engineStatus=null;G.an=null;G.anAt=-1;$('anSF').innerHTML=$('anM').innerHTML='';G.game=new Chess();G.moves=[];G.view=0;G.prev=0;G.seed=nextGameSeed();const selectedSide=document.querySelector('input[name="side"]:checked').value;G.me=G.mode==='an'?'w':selectedSide==='r'?(Math.random()<.5?'w':'b'):selectedSide;G.flip=G.me==='b';
+ G.arrows=[];G.sel=null;G.legal=[];G.hov=null;$('info').textContent='';$('pc').innerHTML='';P={};buildSq();update();engine()}
+function flip(){G.flip=!G.flip;const w=$('wrap');w.classList.add('na');buildSq();update();requestAnimationFrame(()=>requestAnimationFrame(()=>w.classList.remove('na')))}
+const nav=d=>{G.view=Math.max(0,Math.min(G.moves.length,d==='f'?0:d==='l'?G.moves.length:G.view+ +d));
+ if(G.mode==='an'){G.cur=G.view?G.nodes[G.view-1]:G.root;G.sel=null;G.legal=[]}update()};
+/* ---- ponteiro: arrastar, clicar e desenhar setas ---- */
+const W=$('wrap');W.oncontextmenu=e=>e.preventDefault();
+W.onpointerdown=e=>{
+ if(e.button===2){G.rc=sqEv(e);G.rcTo=null;G.rcCol=colOf(e);W.setPointerCapture(e.pointerId);return}
+ if(e.button!==0)return;
+ e.preventDefault();G.arrows=[];const n=sqEv(e);if(!n){drawArrows();return}
+ if(canPlay()){
+  if(G.sel&&G.legal.some(m=>m.to===n)){tryMove(G.sel,n);return}
+  const b=B(),p=b.get(n);
+  if(p&&p.color===b.turn()){const again=G.sel===n;G.sel=n;G.legal=b.moves({square:n,verbose:true});
+   G.ptr={n,x:e.clientX,y:e.clientY,drag:false,again,el:P[n]};W.setPointerCapture(e.pointerId)}
+  else{G.sel=null;G.legal=[]}
+ }
+ paintSq();drawArrows()};
+W.onpointermove=e=>{
+ if(G.rc){const t=sqEv(e);if(t!==G.rcTo){G.rcTo=t;G.rcCol=colOf(e);drawArrows()}return}
+ const q=G.ptr;if(!q)return;
+ if(!q.drag&&Math.hypot(e.clientX-q.x,e.clientY-q.y)>3){q.drag=true;q.el.classList.add('drag');q.el.style.transition='none';W.classList.add('grab')}
+ if(!q.drag)return;
+ const R=$('board').getBoundingClientRect(),s=R.width/8;
+ q.el.style.transform=`translate(${(e.clientX-R.left-s/2)/s*100}%,${(e.clientY-R.top-s/2)/s*100}%) scale(1.12)`;
+ const t=sqEv(e),h=t&&G.legal.some(m=>m.to===t)?t:null;
+ if(h!==G.hov){G.hov=h;paintSq()}};
+W.onpointerup=e=>{
+ if(e.button===2&&G.rc){const t=sqEv(e);
+  if(t){const k=G.arrows.findIndex(a=>a.from===G.rc&&a.to===t&&a.col===G.rcCol);k>=0?G.arrows.splice(k,1):G.arrows.push({from:G.rc,to:t,col:G.rcCol})}
+  G.rc=G.rcTo=null;drawArrows();return}
+ const q=G.ptr;G.ptr=null;if(!q)return;W.classList.remove('grab');G.hov=null;
+ if(q.drag){const t=sqEv(e);q.el.classList.remove('drag');
+  if(t&&G.legal.some(m=>m.to===t))tryMove(q.n,t,q.el);
+  else{q.el.style.transition='';q.el.style.transform=tf(q.n);paintSq()}}
+ else if(q.again){G.sel=null;G.legal=[];paintSq()}};
+W.onpointercancel=()=>{const q=G.ptr;G.ptr=null;G.rc=G.rcTo=null;W.classList.remove('grab');if(q&&q.drag){q.el.classList.remove('drag');q.el.style.transition='';q.el.style.transform=tf(q.n)}G.hov=null;paintSq();drawArrows()};
+/* ---- controles ---- */
+ $('moves').onclick=e=>{const a=e.target.closest('a');if(!a)return;
+ if(a.dataset.id){setLine(NM[a.dataset.id]);G.sel=null;G.legal=[];update()}
+ else if(a.dataset.i){G.view=+a.dataset.i;update()}};
+document.querySelectorAll('[data-n]').forEach(b=>b.onclick=()=>nav(b.dataset.n));
+$('new').onclick=newGame;$('flip').onclick=flip;
+$('undo').onclick=()=>{if(G.busy)return;
+ if(G.mode==='an'){const node=G.cur;if(!node.par)return;node.par.kids=node.par.kids.filter(child=>child!==node);setLine(node.par);G.sel=null;G.legal=[];update();return}
+ const n=G.game.turn()===G.me?2:1;for(let i=0;i<n&&G.moves.length;i++){G.game.undo();G.moves.pop()}G.view=G.moves.length;G.sel=null;G.legal=[];update()};
+$('lam').oninput=()=>$('lamv').textContent=$('lam').value;
+$('tmp').oninput=()=>$('tmpv').textContent=$('tmp').value;
+const clampSearchInput=(id,min,max)=>{const input=$(id);input.onchange=()=>{input.value=String(Math.max(min,Math.min(max,Math.round(Number(input.value)||min))))}};
+clampSearchInput('bud',0,6);clampSearchInput('dep',1,3);
+function startMode(mode){G.mode=mode;document.body.dataset.mode=mode;document.body.classList.remove('menu');
+ $('bw').classList.toggle('on',mode==='an');newGame()}
+$('goPlay').onclick=()=>startMode('play');$('goAn').onclick=()=>startMode('an');
+$('retryMove').onclick=()=>engine();
+$('configToggle').onclick=()=>{const expanded=$('configToggle').getAttribute('aria-expanded')==='true';$('configToggle').setAttribute('aria-expanded',String(!expanded));$('configOptions').hidden=expanded;$('configToggle').querySelector('.config-toggle-label').textContent=tr(expanded?'advancedSettings':'hideSettings')};
+$('retryEngine').onclick=connectEngine;
+$('menuBtn').onclick=()=>document.body.classList.add('menu');
+addEventListener('keydown',e=>{if(/INPUT|SELECT/.test(e.target.tagName))return;
+ if(e.key==='ArrowLeft')nav(-1);else if(e.key==='ArrowRight')nav(1);else if(e.key==='ArrowUp')nav('f');else if(e.key==='ArrowDown')nav('l');else if(e.key==='f')flip()});
+/* ---- livro de aberturas (lichess-org/chess-openings, baixado uma vez e guardado no navegador) ---- */
+const FG={K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘'},fig=(s,side)=>s.replace(/^[KQRBN]/,c=>`<span class="fg ${side}">${GL[c.toLowerCase()]}\uFE0E</span>`);
+const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])),norm=s=>s.replace(/[+#!?]/g,''),OB=new Map();
+async function loadBook(){
+ try{let t=localStorage.getItem('kairos_book');
+  if(!t){t=(await Promise.all([...'abcde'].map(x=>fetch(`https://raw.githubusercontent.com/lichess-org/chess-openings/master/${x}.tsv`).then(r=>{if(!r.ok)throw 0;return r.text()})))).join('\n');
+   try{localStorage.setItem('kairos_book',t)}catch(e){}}
+  t.split('\n').forEach(l=>{const[eco,name,pgn]=l.split('\t');if(!pgn||eco==='eco')return;
+   OB.set(pgn.replace(/\d+\.+/g,' ').split(/\s+/).filter(Boolean).map(norm).join(' '),{eco,name})})}catch(e){}
+ panel()}
+function bookName(){const s=G.moves.slice(0,G.view).map(m=>norm(m.san));
+ for(let k=s.length;k>0;k--){const o=OB.get(s.slice(0,k).join(' '));if(o)return o}return null}
+/* ---- barra de avaliação do Stockfish ---- */
+let evT,evTok=0;
+function setBar(cp,m){const pct=m!=null?(m>0?100:0):100/(1+Math.exp(-0.00368208*cp)),w=pct>=50,v=$('ebv'),end=w!==G.flip;
+ $('ebw').style.height=pct+'%';
+ v.textContent=m!=null?'M'+Math.abs(m):Math.abs(cp)>=9000?'#':(Math.abs(cp)/100).toFixed(1);
+ v.style.top=end?'auto':'0';v.style.bottom=end?'0':'auto';v.style.color=w?'#333':'#eee'}
+const sc=(cp,m)=>m!=null?(m>0?'+M':'-M')+Math.abs(m):(cp>=0?'+':'')+(cp/100).toFixed(2);
+function figs(t){let side='w';return t.split(' ').map(x=>{
+ if(/^\d+\.\.\.$/.test(x)){side='b';return `<span class="n">${x}</span>`}
+ if(/^\d+\.$/.test(x)){side='w';return `<span class="n">${x}</span>`}
+ if(x==='★')return '<span class="star">★</span>';
+ const h=fig(x,side);side=side==='w'?'b':'w';return `<em class="mv">${h}</em>`}).join(' ')}
+function anPanel(){const j=G.an;if(!j)return;const sf=new Set(j.lines.map(l=>l.uci));
+ const L=(h,t,c)=>`<div class="ln"><b class="ev ${c}">${h}</b><span>${figs(t)}</span></div>`;
+ $('anSF').innerHTML=j.lines.map(l=>L(sc(l.cp,l.mate),l.txt,(l.mate!=null?l.mate>0:l.cp>=0)?'pos':'neg')).join('')||'—';
+ $('anM').innerHTML=j.model.map(m=>L((m.p*100).toFixed(0)+'%',(sf.has(m.uci)?'★ ':'')+m.txt,'md')).join('')||'—'}
+async function evalBar(){
+ if(G.mode!=='an')return;const tok=++evTok;
+ try{const r=await fetch(API+'/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fen:pos(G.view).fen(),policy:$('pol').value})});
+  const j=await r.json();if(tok!==evTok)return;if(j.error)throw new Error(j.error);
+  G.an=j;setBar(j.cp,j.mate);anPanel()}
+ catch(e){if(tok!==evTok)return;$('ebv').textContent='?';$('anSF').textContent=tr('analysisError',{error:e.message})}}
+/* ---- tabuleiro decorativo do menu ---- */
+function renderSideIcons(){
+ for(const c of ['w','b']){const el=document.querySelector(`.side-choice [data-side=${c}] .side-icon`);
+  el.innerHTML=pieceSet==='unicode'?'♚\uFE0E':`<img src="${pieceURL(c+'k')}" alt="">`}}
+function renderBg(){const b=$('bgBoard');b.innerHTML='';
+ 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR'.split('/').forEach((row,r)=>{let c=0;
+  for(const ch of row){if(/\d/.test(ch)){for(let k=0;k<+ch;k++)b.insertAdjacentHTML('beforeend',`<span class="${(r+c++)%2?'d':'l'}"></span>`)}
+   else{const w=ch===ch.toUpperCase(),k=(w?'w':'b')+ch.toLowerCase(),q=(r+c++)%2?'d':'l';
+    b.insertAdjacentHTML('beforeend',pieceSet==='unicode'?`<span class="${q} ${w?'pw':'pb'}">${GL[ch.toLowerCase()]}\uFE0E</span>`:`<span class="${q}"><img src="${pieceURL(k)}" alt=""></span>`)}}})}
+/* ---- peças (conjuntos do Lichess, via CDN) ---- */
+const PS=[['cburnett','Cburnett'],['staunty','Staunty'],['cardinal','Cardinal'],['merida','Merida'],['maestro','Maestro'],['companion','Companion'],['tatiana','Tatiana'],['anarcandy','Anarcandy'],['fresca','Fresca'],['gioco','Gioco'],['chessnut','Chessnut'],['california','California'],['leipzig','Leipzig'],['pixel','Pixel'],['unicode','Unicode (offline)']];
+const PBASE='https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/piece/';
+let pieceSet='cburnett';
+try{pieceSet=localStorage.getItem('kairos_pieces')||'cburnett'}catch(e){}
+if(!PS.some(p=>p[0]===pieceSet))pieceSet='cburnett';
+const pieceURL=k=>`${PBASE}${pieceSet}/${k[0]}${k[1].toUpperCase()}.svg`;
+for(const id of ['pieceSet','gamePieceSet'])$(id).innerHTML=PS.map(([v,n])=>`<option value="${v}">${n}</option>`).join('');
+async function applyPieces(set,save){
+ let ok=true;
+ if(set!=='unicode')ok=(await Promise.all(['w','b'].flatMap(c=>['K','Q','R','B','N','P'].map(t=>new Promise(res=>{const i=new Image();i.onload=()=>res(true);i.onerror=()=>res(false);i.src=`${PBASE}${set}/${c}${t}.svg`}))))).every(Boolean);
+ if(!ok)set='unicode';
+ pieceSet=set;$('pieceSet').value=$('gamePieceSet').value=set;
+ if(save&&ok)try{localStorage.setItem('kairos_pieces',set)}catch(e){}
+ Object.values(P).forEach(e=>setK(e,e.dataset.k));renderBg();renderSideIcons()}
+$('pieceSet').onchange=()=>applyPieces($('pieceSet').value,true);
+$('gamePieceSet').onchange=()=>applyPieces($('gamePieceSet').value,true);
+/* ---- opções (guardadas no navegador) ---- */
+setLanguage(language);
+const chooseLanguage=value=>{setLanguage(value);localStorage.setItem('kairos_language',language);update()};
+$('language').onchange=()=>chooseLanguage($('language').value);
+$('gameLanguage').onchange=()=>chooseLanguage($('gameLanguage').value);
+buildSq();update();loadBook();applyPieces(pieceSet,false);
+async function connectEngine(){
+ const retry=$('retryEngine'),state=$('menuStatus').querySelector('span');
+ retry.disabled=true;retry.hidden=true;
+ state.dataset.i18n='connecting';state.textContent=tr('connecting');
+ $('menuStatus').classList.remove('ready');$('mst').textContent='';
+ try{
+  const r=await fetch(API+'/api/info');
+  if(!r.ok)throw new Error(`HTTP ${r.status}`);
+  const j=await r.json();
+  if(!Array.isArray(j.policies)||!j.policies.length||!j.policies.every(policy=>typeof policy==='string'))throw new Error('Invalid engine info');
+  policyNames=j.policies;
+  $('pol').replaceChildren(...policyNames.map(policy=>{const option=document.createElement('option');option.value=policy;option.textContent=policy;return option}));
+  updatePolicyLabels();
+  $('goPlay').disabled=$('goAn').disabled=false;
+  $('menuStatus').classList.add('ready');state.dataset.i18n='connected';state.textContent=tr('connected');
+ }catch(error){
+  state.dataset.i18n='disconnected';state.textContent=tr('disconnected');
+  $('mst').dataset.i18n='serverMissing';$('mst').textContent=tr('serverMissing');
+  retry.hidden=false;
+ }finally{retry.disabled=false}
+}
+connectEngine();
+</script></body></html>
