@@ -1,11 +1,84 @@
-
 <div align="center">
 
----
+<h1>KAIROS</h1>
+
+<p><b>Knowledge-guided Adaptive Inference for Reasoning Over Style</b></p>
+
+<p>A chess agent that separates <i>how good</i> a move is<br>from <i>how much it looks like</i> a given style.</p>
+
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![Release](https://img.shields.io/badge/weights-v0.2.0-informational)
+![Status](https://img.shields.io/badge/status-academic%20project-lightgrey)
+
+<p>
+<a href="#interface">Interface</a> ·
+<a href="#quick-start">Quick start</a> ·
+<a href="#how-it-works">How it works</a> ·
+<a href="#results">Results</a> ·
+<a href="#limitations">Limitations</a>
+</p>
+
+<br>
+
+<img src="docs/images/hero.png" alt="KAIROS analysis board" width="820">
+
+<br>
+<br>
+
+</div>
 
 Stockfish measures **quality**, a neural policy measures **stylistic preference**, and an alpha-beta minimax combines the two with a single, interpretable weight.
 
 Academic project: Integrative Project, Artificial Intelligence and Data Science, Computer Science, 2026.
+
+<br>
+
+## Interface
+
+A local web app to play against the agent and inspect its decisions. Run it with `make serve` and open <http://localhost:8000>.
+
+<a href="docs/images/play.png"><img align="left" src="docs/images/play.png" alt="Playing against KAIROS" width="480" hspace="20" vspace="10"></a><br><br>
+
+### Play
+
+Play as White, Black or random against the full minimax agent, in a romantic, positional or neutral style.
+
+Drag or click to move, right-drag to draw arrows, undo and flip at any time.
+
+<br clear="all">
+
+<a href="docs/images/analysis.png"><img align="right" src="docs/images/analysis.png" alt="Analysis board with a variation" width="480" hspace="20" vspace="10"></a><br><br>
+
+### Analyze
+
+Stockfish's three best lines next to the model's three predicted lines.
+
+Evaluation bar, variation tree and opening names included.
+
+<br clear="all">
+
+<a href="docs/images/settings.png"><img align="left" src="docs/images/settings.png" alt="Style, lambda, temperature and search settings" width="480" hspace="20" vspace="10"></a><br><br>
+
+### Tune
+
+**&lambda;** sets how much objective quality is traded for style.
+
+Temperature, search effort and lookahead depth are adjustable from the menu.
+
+<br clear="all">
+
+<a href="docs/images/languages.png"><img align="right" src="docs/images/languages.png" alt="Spanish interface with Merida pieces, playing Black" width="480" hspace="20" vspace="10"></a><br><br>
+
+### Make it yours
+
+English, Portuguese and Spanish.
+
+14 Lichess piece sets, plus an offline Unicode fallback.
+
+<br clear="all">
+
+
+<br>
 
 ## Quick start
 
@@ -23,9 +96,9 @@ pip install -e ".[dev]"              # GPU: make install-gpu CUDA=cu121
 
 **2. Download the two required files**
 
-| What                                    | Source                                                                  | Destination                 |
-| --------------------------------------- | ----------------------------------------------------------------------- | --------------------------- |
-| Stockfish                               | [stockfishchess.org/download](https://stockfishchess.org/download/)      | `stockfish/`              |
+| What | Source | Destination |
+|---|---|---|
+| Stockfish | [stockfishchess.org/download](https://stockfishchess.org/download/) | `stockfish/` |
 | Weights (`kairos-weights-v0.2.0.zip`) | [Release v0.2.0](https://github.com/KuroshiD/KAIROS/releases/tag/v0.2.0) | Extract at the project root |
 
 Expected layout afterwards:
@@ -57,40 +130,7 @@ make test       # logic tests, no Stockfish or GPU needed
 make serve      # web interface at http://localhost:8000
 ```
 
-## Web interface
-
-`make serve` starts the official interface from `app/` at **[http://localhost:8000](http://localhost:8000)**. The server listens only on `127.0.0.1`.
-
-- Play as White, Black, or random against the full minimax agent
-- Pick the style: romantic, positional control, or untuned base policy
-- Tune λ, temperature, thinking budget, and search depth
-- Analysis board comparing Stockfish's view with KAIROS's choice
-- Evaluation bar, move list, undo, flip, piece sets, and three languages (EN, PT, ES)
-
-<!-- IMAGES 2-4: replace the files in docs/images/ (same names) or edit the paths/captions below -->
-
-<table>
-  <tr>
-    <td align="center" width="50%">
-      <img src="docs/images/play.png" alt="Playing against KAIROS"><br>
-      <sub><b>Play</b>: game against the agent</sub>
-    </td>
-    <td align="center" width="50%">
-      <img src="docs/images/analysis.png" alt="Analysis board"><br>
-      <sub><b>Analysis</b>: Stockfish vs. KAIROS</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="50%">
-      <img src="docs/images/settings.png" alt="Agent settings"><br>
-      <sub><b>Settings</b>: style, λ, depth, temperature</sub>
-    </td>
-    <td align="center" width="50%">
-      <img src="docs/images/languages.png" alt="Language and piece set options"><br>
-      <sub><b>Customization</b>: languages and piece sets</sub>
-    </td>
-  </tr>
-</table>
+The server listens only on `127.0.0.1`.
 
 <details>
 <summary>Run without <code>make</code></summary>
@@ -115,11 +155,11 @@ $$
 U = v(s_{\text{leaf}}) + \lambda \sum_{t=1}^{m} \log \pi(a_t \mid s_t)
 $$
 
-| Term        | Source        | Meaning                                                                                            |
-| ----------- | ------------- | -------------------------------------------------------------------------------------------------- |
-| $v$       | Stockfish     | Objective value in centipawns, from the agent's point of view                                      |
-| $\pi$     | Neural policy | Prior over the agent's own moves, learned from a group of players                                  |
-| $\lambda$ | Parameter     | Centipawns per nat: a move one nat less likely is chosen only if it costs less than $\lambda$ cp |
+| Term | Source | Meaning |
+|---|---|---|
+| $v$ | Stockfish | Objective value in centipawns, from the agent's point of view |
+| $\pi$ | Neural policy | Prior over the agent's own moves, learned from a group of players |
+| $\lambda$ | Parameter | Centipawns per nat: a move one nat less likely is chosen only if it costs less than $\lambda$ cp |
 
 The agent's nodes maximize $U$, the opponent's nodes minimize it, and the opponent has no style. With $\lambda = 0$ the agent plays the objective decision of the same search. The network never evaluates positions and never acts on the opponent's moves, so style and quality stay separate.
 
@@ -143,16 +183,16 @@ flowchart LR
 <details>
 <summary>Modules</summary>
 
-| Module               | Code                             | Role                                                                |
-| -------------------- | -------------------------------- | ------------------------------------------------------------------- |
-| M1 Strength corpus   | `kairos.data.prepare`          | Human games and Lichess puzzles to 18x8x8 tensors, split by game    |
-| M2 PolicyNet         | `kairos.models`                | Residual CNN with Squeeze-and-Excitation, 1,968 action logits       |
-| M3 Style corpus      | `kairos.data.style_corpus`     | One PGN per player, own moves only, annotated with Stockfish        |
+| Module | Code | Role |
+|---|---|---|
+| M1 Strength corpus | `kairos.data.prepare` | Human games and Lichess puzzles to 18x8x8 tensors, split by game |
+| M2 PolicyNet | `kairos.models` | Residual CNN with Squeeze-and-Excitation, 1,968 action logits |
+| M3 Style corpus | `kairos.data.style_corpus` | One PGN per player, own moves only, annotated with Stockfish |
 | M4 Style fine-tuning | `kairos.models.style_finetune` | Warm start, tactical replay, KL to the base policy, regression gate |
-| M5 Candidate tree    | `kairos.search.tree`           | Stockfish MultiPV, safety net, SQLite cache built once              |
-| M6 Scorer            | `kairos.search.policy`         | $\log \pi$ of each candidate                                      |
-| M7 Minimax           | `kairos.search.minimax`        | Exact alpha-beta, moves ordered by the policy                       |
-| M8 Evaluation        | `kairos.search.evaluation`     | Experiments A to D with paired bootstrap intervals                  |
+| M5 Candidate tree | `kairos.search.tree` | Stockfish MultiPV, safety net, SQLite cache built once |
+| M6 Scorer | `kairos.search.policy` | $\log \pi$ of each candidate |
+| M7 Minimax | `kairos.search.minimax` | Exact alpha-beta, moves ordered by the policy |
+| M8 Evaluation | `kairos.search.evaluation` | Experiments A to D with paired bootstrap intervals |
 
 </details>
 
@@ -170,23 +210,22 @@ flowchart LR
 All numbers come from the Marco 2 report; style comparisons use held-out games.
 
 <!-- IMAGE 5 (optional): trade-off plot, divergence/cost vs. lambda -->
-
 <!-- <p align="center"><img src="docs/images/tradeoff.png" alt="Quality-style trade-off" width="70%"></p> -->
 
 **Base policy** (test set, 1,702,331 positions)
 
-| Subset      |  Top-1 |  Top-3 |    NLL |
-| ----------- | -----: | -----: | -----: |
-| Overall     | 80.81% | 93.37% | 0.6345 |
-| Puzzles     | 88.93% | 97.72% | 0.3658 |
+| Subset | Top-1 | Top-3 | NLL |
+|---|---:|---:|---:|
+| Overall | 80.81% | 93.37% | 0.6345 |
+| Puzzles | 88.93% | 97.72% | 0.3658 |
 | Human games | 50.65% | 77.24% | 1.6318 |
 
 **Style fine-tuning** (romantic policy, held-out romantic games)
 
-|             |   Base | Fine-tuned |
-| ----------- | -----: | ---------: |
-| Style NLL   | 1.9239 |     1.8146 |
-| Style top-1 | 43.81% |     45.16% |
+| | Base | Fine-tuned |
+|---|---:|---:|
+| Style NLL | 1.9239 | 1.8146 |
+| Style top-1 | 43.81% | 45.16% |
 
 Tactical top-1 dropped by at most 0.8 percentage points. Both fine-tuned policies beat the base policy on all three held-out sets, including Fischer, so part of the gain is general adaptation to human play. The romantic policy explains romantic players' moves better than the positional control (NLL difference -0.032, 95% CI excluding zero) and is indistinguishable from it on positional players. A good part of that gap comes from Morphy, Anderssen, and Chigorin.
 
@@ -196,11 +235,11 @@ Tactical top-1 dropped by at most 0.8 percentage points. Both fine-tuned policie
 Romantic policy against a random heuristic. Divergence is the fraction of positions where the move differs from the objective decision of the same search.
 
 | $\lambda$ | Divergence | Cost (cp) | Random: divergence | Random: cost (cp) |
-| ----------: | ---------: | --------: | -----------------: | ----------------: |
-|           5 |      0.176 |       1.0 |              0.143 |               0.6 |
-|          20 |      0.328 |       4.6 |              0.343 |               4.4 |
-|          80 |      0.444 |      10.2 |              0.547 |              15.4 |
-|         160 |      0.476 |      12.1 |              0.595 |              18.9 |
+|---:|---:|---:|---:|---:|
+| 5 | 0.176 | 1.0 | 0.143 | 0.6 |
+| 20 | 0.328 | 4.6 | 0.343 | 4.4 |
+| 80 | 0.444 | 10.2 | 0.547 | 15.4 |
+| 160 | 0.476 | 12.1 | 0.595 | 18.9 |
 
 </details>
 
@@ -216,11 +255,11 @@ Alpha-beta returns exactly the minimax value (0 mismatches on 300 positions at d
 
 ## Data
 
-| Corpus    | Content                                                                                                                                                                                     |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Strength  | 274,098 tournament games (TWIC and an aggregated Figshare database) plus the Lichess puzzle database: 13.6 M positions (10.2 M train, 1.7 M validation, 1.7 M test). About 79% are puzzles. |
-| Style     | 20 players grouped a priori (see below)                                                                                                                                                     |
-| Reference | Fischer (825 games), unlabeled and never used for training                                                                                                                                  |
+| Corpus | Content |
+|---|---|
+| Strength | 274,098 tournament games (TWIC and an aggregated Figshare database) plus the Lichess puzzle database: 13.6 M positions (10.2 M train, 1.7 M validation, 1.7 M test). About 79% are puzzles. |
+| Style | 20 players grouped a priori (see below) |
+| Reference | Fischer (825 games), unlabeled and never used for training |
 
 - **Romantic (11):** Morphy, Anderssen, Chigorin, Marshall, Spielmann, Alekhine, Tal, Bronstein, Kasparov, Shirov, Morozevich
 - **Positional (9):** Steinitz, Rubinstein, Capablanca, Nimzowitsch, Botvinnik, Smyslov, Petrosian, Karpov, Kramnik
@@ -231,16 +270,16 @@ The groups are an operational definition for the experiment, not a claim that ev
 
 Retraining is optional: the release weights already include every model. These steps also need the datasets in [`data/README.md`](data/README.md).
 
-| Step               | Make                              | Command                                                                                |
-| ------------------ | --------------------------------- | -------------------------------------------------------------------------------------- |
-| Strength corpus    | `make prepare`                  | `kairos-prepare --out data/data_policy --pgn ... --puzzles ...`                      |
-| Base policy        | `make train`                    | `kairos-train --data data/data_policy --out runs/p1`                                 |
-| Style corpus       | `make corpus`                   | `kairos-corpus build --pgn-dir data/corpus --out data/style-data --stockfish ...`    |
-| Style policies     | `make finetune`                 | `kairos-finetune --policy runs/p1/best.pt --group romantic --out runs/style_rom ...` |
-| Candidate tree     | `make tree`                     | `kairos build --stockfish ... --depth 2`                                             |
-| Solve and evaluate | `make solve`                    | `kairos solve --policy rom=runs/style_rom/best.pt ...`                               |
-| One position       | `make play FEN="..." LAMBDA=20` | `kairos play --stockfish ... --fen "..." --lam 20`                                   |
-| Web interface      | `make serve`                    | `python app/server.py --stockfish ... --policy rom=... --port 8000`                  |
+| Step | Make | Command |
+|---|---|---|
+| Strength corpus | `make prepare` | `kairos-prepare --out data/data_policy --pgn ... --puzzles ...` |
+| Base policy | `make train` | `kairos-train --data data/data_policy --out runs/p1` |
+| Style corpus | `make corpus` | `kairos-corpus build --pgn-dir data/corpus --out data/style-data --stockfish ...` |
+| Style policies | `make finetune` | `kairos-finetune --policy runs/p1/best.pt --group romantic --out runs/style_rom ...` |
+| Candidate tree | `make tree` | `kairos build --stockfish ... --depth 2` |
+| Solve and evaluate | `make solve` | `kairos solve --policy rom=runs/style_rom/best.pt ...` |
+| One position | `make play FEN="..." LAMBDA=20` | `kairos play --stockfish ... --fen "..." --lam 20` |
+| Web interface | `make serve` | `python app/server.py --stockfish ... --policy rom=... --port 8000` |
 
 `make help` lists every target. Each command accepts `--help`.
 
@@ -261,11 +300,11 @@ Retraining is optional: the release weights already include every model. These s
 
 ## Roadmap
 
-- [X] Strength corpus, base policy, exploratory style classifier
-- [X] Style fine-tuning (romantic and positional control)
-- [X] KAIROS v2: SQLite tree, alpha-beta minimax, experiments A to D
-- [X] Official web interface
-- [X] Trained weights published as a release
+- [x] Strength corpus, base policy, exploratory style classifier
+- [x] Style fine-tuning (romantic and positional control)
+- [x] KAIROS v2: SQLite tree, alpha-beta minimax, experiments A to D
+- [x] Official web interface
+- [x] Trained weights published as a release
 - [ ] Independent referee for the objective depth-2 decision (much deeper search)
 - [ ] Sampling decision $q(a) \propto \exp(Q/\lambda)$ instead of argmax
 - [ ] Fine-tuning with equal sizes and three seeds
